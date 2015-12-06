@@ -1,8 +1,3 @@
-/* bkerndev - Bran's Kernel Development Tutorial
-*  By:   Brandon F. (friesenb@gmail.com)
-*  Desc: Interrupt Service Routines installer and exceptions
-*
-*  Notes: No warranty expressed or implied. Use at own risk. */
 #include "kernel.h"
 #include "display.h"
 
@@ -144,8 +139,8 @@ void fault_handler(struct regs *r)
     if (r->int_no < 32)
     {
 //        puts(exception_messages[r->int_no]);
-//        puts(" Exception. System Halted!\n");
-        print("Exception", 4, 4, 0x0f);
+//        puts(" Exception. System Halted!");
+        print(exception_messages[r->int_no], 0, 0, WHITE_ON_BLACK);
         for (;;);
     }
 }
