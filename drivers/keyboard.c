@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "keyboard.h"
+#include "process.h"
 
 /* KBDUS means US Keyboard Layout. This is a scancode table
 *  used to layout a standard US keyboard. I have left some
@@ -84,6 +85,11 @@ void keyboard_handler(struct regs *r)
         *  to the above layout to correspond to 'shift' being
         *  held. If shift is held using the larger lookup table,
         *  you would add 128 to the scancode when you look for it */
+        if (kbdus[scancode] == '\t') {
+            switch_process();
+            return;
+        }
+
         if (keyboard_callback != 0) {
             keyboard_callback(kbdus[scancode]);
         }

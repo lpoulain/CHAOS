@@ -5,14 +5,9 @@
 #define VIDEO_ADDRESS 0xb8000
 #define VIDEO_ADDRESS_END 0xb8fa0
 
-int cursor_row = 0;
-int cursor_col = 0;
-char text_color=WHITE_ON_BLACK;
 
-unsigned char *video_memory = (unsigned char *)VIDEO_ADDRESS;
-
-void set_cursor() {
-	unsigned int offset = (unsigned int)(video_memory - VIDEO_ADDRESS) / 2;
+void set_cursor(struct display *disp) {
+	unsigned int offset = (unsigned int)(disp->cursor_address - VIDEO_ADDRESS) / 2;
 
     outportb(0x3D4, 14);
     outportb(0x3D5, offset >> 8);
@@ -20,13 +15,14 @@ void set_cursor() {
     outportb(0x3D5, offset);
 }
 
-void scroll() {
-	int nb_characters = 80 * 24;
-	unsigned char *ptr = (unsigned char *)VIDEO_ADDRESS;
+void scroll(struct display *disp) {
+	int nb_characters = (disp->end_address - disp->start_address) / 2 - 80;
+	unsigned char *ptr = disp->start_address;
 
 	for (int i=0; i<nb_characters; i++) {
 		*ptr = *(ptr+160);
-		ptr+= 2;
+		ptr++;
+		*ptr++ - disp->text_color;
 	}
 
 	for (int i=0; i<80; i++) {
@@ -34,45 +30,42 @@ void scroll() {
 		ptr+= 2;
 	}
 
-	video_memory -= 160;
-	set_cursor();
+	disp->cursor_address -= 160;
+	set_cursor(disp);
 }
 
-void putcr() {
-	int offset = (unsigned int)(video_memory - VIDEO_ADDRESS);
-
-	// If we are at the end, scroll
-	if (offset >= 24 * 160) {
-		scroll();
+void putcr(struct display *disp) {
+	if (disp->cursor_address == disp->end_address) {
+		scroll(disp);
 	}
 
-	offset = offset % 160;
-	video_memory+= 160 - offset;
-	set_cursor();
+	uint offset = (disp->cursor_address - disp->start_address) % 160;
+	disp->cursor_address += 160 - offset;
+	set_cursor(disp);
 }
 
-void putc(char c) {
+void putc(struct display *disp, char c) {
 	if (c == '\n') {
-		putcr();
+		putcr(disp);
 	} else {
-		if (video_memory >= (unsigned char *)VIDEO_ADDRESS_END) scroll();
+		if (disp->cursor_address >= disp->end_address) scroll(disp);
 
-		*video_memory++ = c;
-		*video_memory++ = text_color;
+		*disp->cursor_address++ = c;
+		*disp->cursor_address++ = disp->text_color;
 	}
-	set_cursor();
+	set_cursor(disp);
 }
 
-void backspace() {
+void backspace(struct display *disp) {
 	// We don't want to go before the video buffer
-	if (video_memory == (unsigned char *)VIDEO_ADDRESS) return;
-	video_memory-=2;
-	*video_memory = ' ';
-	set_cursor();	
+	if (disp->cursor_address == disp->start_address) return;
+	disp->cursor_address -= 2;
+	*disp->cursor_address = ' ';
+	set_cursor(disp);
 }
 
-void puts(const char *text) {
-	while (*text) putc(*text++);
+void puts(struct display *disp, const char *text) {
+	while (*text) putc(disp, *text++);
 }
 
 void print(const char *msg, int row, int col, char color) {
@@ -88,17 +81,15 @@ void print(const char *msg, int row, int col, char color) {
 
 }
 
-void cls() {
-	video_memory = (unsigned char *)VIDEO_ADDRESS;
-	int nb_characters = 80 * 25;
+void cls(struct display *disp) {
+	disp->cursor_address = disp->start_address;
 
-	while (nb_characters > 0) {
-		*video_memory++ = ' ';
-		video_memory++;
-		nb_characters--;
+	while (disp->cursor_address < disp->end_address) {
+		*disp->cursor_address++ = ' ';
+		*disp->cursor_address++ = disp->text_color;
 	}
 
-	video_memory = (unsigned char *)VIDEO_ADDRESS;
+	disp->cursor_address = disp->start_address;
 }
 
 
@@ -130,4 +121,11 @@ void print_hex(char b, int row, int col){
 
 	//*++str = '\n'; //newline
 	print(loc, row, col, YELLOW_ON_BLACK);
+}
+
+void display_initialize(struct display *disp, int row_start, int row_end, int color) {
+	disp->start_address = (unsigned char*)VIDEO_ADDRESS + row_start * 160;
+	disp->end_address = (unsigned char*)VIDEO_ADDRESS + (row_end + 1) * 160;
+	disp->cursor_address = disp->start_address;
+	disp->text_color = color;
 }
