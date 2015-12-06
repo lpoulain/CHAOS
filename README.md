@@ -10,6 +10,14 @@ So far, here is what it does:
 - The kernel sets up interruptions in order to be able to catch keystrokes
 - It launches a basic shell with two commands: cls and help
 
+#### How to run it
+
+The makefile is designed to work with gcc on Linux. It should work other platforms, although ld must be the gcc version.
+
+The resulting image is chaos.img, which is a floppy disk image. You can run it using bochs or on VirtualBox by specifying chaos.img as the boot floppy.
+
+#### Thanks
+
 This project has been possible thanks to the numerous resources available on the Internet:
 
 - [Writing a Simple Operating System from Scratch](https://www.cs.bham.ac.uk/~exr/lectures/opsys/10_11/lectures/os-dev.pdf)
