@@ -1,4 +1,4 @@
-## CHAOS (CHrist, Another Operating System)
+## CHAOS (CHeers, Another Operating System)
 
 CHAOS is a simple operating system I am writing from scratch in assembly and C in order to better understand how operating systems work.
 
