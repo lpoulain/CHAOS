@@ -32,8 +32,9 @@ void process_command(display *disp) {
 		puts(disp, "Commands:"); putcr(disp);
 		puts(disp, "- cls: clear screen"); putcr(disp);
 		puts(disp, "- help: this help"); putcr(disp);
-		puts(disp, "- stack: print the stack trace"); putcr(disp);
-		puts(disp, "- mem [hex address]: memory dump"); putcr(disp);
+		puts(disp, "- stack: prints the stack trace"); putcr(disp);
+		puts(disp, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); putcr(disp);
+		puts(disp, "- mem [hex address]: memory dump (to test paging)"); putcr(disp);
 		putcr(disp);
 		return;
 	}
