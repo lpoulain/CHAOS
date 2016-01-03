@@ -1,0 +1,381 @@
+
+Allocating common symbols
+Common symbol       size              file
+
+process_focus       0x4               kernel/process.o
+idt_ptr             0x6               kernel/descriptor_tables.o
+processes           0xc234            kernel/process.o
+gdt_entries         0x28              kernel/descriptor_tables.o
+pad                 0x7               kernel/process.o
+initial_esp         0x4               kernel/kernel.o
+eip_global          0x4               kernel/process.o
+idt_entries         0x800             kernel/descriptor_tables.o
+kernel_page_directory
+                    0x4               kernel/virtualmem.o
+forbidden_page      0x4               kernel/virtualmem.o
+nb_frames           0x4               kernel/virtualmem.o
+gdt_ptr             0x6               kernel/descriptor_tables.o
+esp_global          0x4               kernel/process.o
+interrupt_handlers  0x400             kernel/isr.o
+current_process     0x4               kernel/process.o
+frame_bitmap        0x4               kernel/virtualmem.o
+ebp_global          0x4               kernel/process.o
+page_tables         0x12c000          kernel/virtualmem.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.text           0x0000000000001000     0x3000
+                0x0000000000001000                code = .
+                0x0000000000001000                _code = .
+                0x0000000000001000                __code = .
+ *(.text)
+ .text          0x0000000000001000      0x270 kernel/kernel_entry.o
+                0x0000000000001008                stack_dump
+                0x0000000000001014                get_eip
+                0x0000000000001018                read_eip
+                0x000000000000101b                context_switch
+                0x000000000000101e                gdt_flush
+                0x000000000000103b                idt_flush
+                0x0000000000001043                isr0
+                0x000000000000104d                isr1
+                0x0000000000001057                isr2
+                0x0000000000001061                isr3
+                0x000000000000106b                isr4
+                0x0000000000001075                isr5
+                0x000000000000107f                isr6
+                0x0000000000001089                isr7
+                0x0000000000001093                isr8
+                0x000000000000109b                isr9
+                0x00000000000010a5                isr10
+                0x00000000000010ad                isr11
+                0x00000000000010b5                isr12
+                0x00000000000010bd                isr13
+                0x00000000000010c5                isr14
+                0x00000000000010cd                isr15
+                0x00000000000010d7                isr16
+                0x00000000000010e1                isr17
+                0x00000000000010eb                isr18
+                0x00000000000010f5                isr19
+                0x00000000000010ff                isr20
+                0x0000000000001109                isr21
+                0x0000000000001113                isr22
+                0x000000000000111d                isr23
+                0x0000000000001127                isr24
+                0x0000000000001131                isr25
+                0x000000000000113b                isr26
+                0x0000000000001145                isr27
+                0x000000000000114f                isr28
+                0x0000000000001159                isr29
+                0x0000000000001163                isr30
+                0x000000000000116d                isr31
+                0x0000000000001174                irq0
+                0x000000000000117e                irq1
+                0x0000000000001188                irq2
+                0x0000000000001192                irq3
+                0x0000000000001199                irq4
+                0x00000000000011a0                irq5
+                0x00000000000011a7                irq6
+                0x00000000000011ae                irq7
+                0x00000000000011b5                irq8
+                0x00000000000011bc                irq9
+                0x00000000000011c3                irq10
+                0x00000000000011ca                irq11
+                0x00000000000011d1                irq12
+                0x00000000000011d8                irq13
+                0x00000000000011df                irq14
+                0x00000000000011e6                irq15
+                0x0000000000001237                copy_physical_page
+ .text          0x0000000000001270      0x717 kernel/descriptor_tables.o
+                0x0000000000001270                init_descriptor_tables
+ .text          0x0000000000001987       0x94 kernel/heap.o
+                0x0000000000001987                init_heap
+                0x000000000000198d                kmalloc
+                0x00000000000019be                kmalloc_a
+ .text          0x0000000000001a1b       0xfe kernel/isr.o
+                0x0000000000001a1b                register_interrupt_handler
+                0x0000000000001a38                isr_handler
+                0x0000000000001a94                irq_handler
+ .text          0x0000000000001b19       0xd0 kernel/kernel.o
+                0x0000000000001b19                inportb
+                0x0000000000001b36                outportb
+                0x0000000000001b55                outb
+                0x0000000000001b74                inb
+                0x0000000000001b91                main
+ .text          0x0000000000001be9      0x58c kernel/process.o
+                0x0000000000001be9                get_process_focus
+                0x0000000000001bf3                init_processes
+                0x0000000000001c5e                get_new_process
+                0x0000000000001d0e                init_tasking
+                0x0000000000001d54                move_stack
+                0x0000000000001e3b                copy_stack
+                0x0000000000001ef6                switch_process
+                0x0000000000002059                switch_process_focus
+                0x0000000000002086                fork
+                0x0000000000002169                getpid
+ .text          0x0000000000002175        0x0 kernel/register.o
+ .text          0x0000000000002175       0x85 kernel/scheduler.o
+                0x0000000000002175                scheduler_phase
+                0x00000000000021df                init_scheduler
+ .text          0x00000000000021fa      0xa18 kernel/virtualmem.o
+                0x000000000000237f                map_to_first_available
+                0x000000000000244e                map_page
+                0x00000000000024f2                unmap_page
+                0x000000000000254e                get_PTE_val
+                0x0000000000002574                map_forbidden
+                0x0000000000002592                get_PTE
+                0x0000000000002637                init_virtualmem
+                0x000000000000274f                switch_page_directory
+                0x00000000000028dc                clone_page_directory
+                0x0000000000002996                print_page_directory
+ .text          0x0000000000002c12      0x3b9 lib/libc.o
+                0x0000000000002c12                strcpy
+                0x0000000000002c42                strcmp
+                0x0000000000002c8f                strlen
+                0x0000000000002cb7                strncmp
+                0x0000000000002d14                memcpy
+                0x0000000000002d4c                memset
+                0x0000000000002d7c                getch
+                0x0000000000002d99                debug_i
+                0x0000000000002de4                debug
+                0x0000000000002e04                C_stack_dump
+                0x0000000000002e98                dump_mem
+ .text          0x0000000000002fcb      0x70d drivers/display.o
+                0x0000000000002fcb                set_cursor
+                0x0000000000003039                scroll
+                0x00000000000030d3                putcr
+                0x0000000000003142                putc
+                0x00000000000031ac                puti
+                0x0000000000003284                backspace
+                0x00000000000032b3                puts
+                0x00000000000032e0                print
+                0x0000000000003357                cls
+                0x00000000000033af                print_hex
+                0x0000000000003465                print_hex2
+                0x0000000000003519                print_ptr
+                0x00000000000035f3                print_int
+                0x0000000000003688                init_display
+ .text          0x00000000000036d8       0xa0 drivers/keyboard.o
+                0x000000000000375d                init_keyboard
+ .text          0x0000000000003778      0x55f utils/shell.o
+                0x0000000000003778                prompt
+                0x0000000000003794                countdown
+                0x0000000000003815                process_command
+                0x0000000000003af4                callback
+                0x0000000000003c49                poll
+                0x0000000000003c91                shell
+                0x0000000000004000                . = ALIGN (0x1000)
+ *fill*         0x0000000000003cd7      0x329 
+
+.eh_frame       0x0000000000004000      0xaf4
+ .eh_frame      0x0000000000004000       0xb8 kernel/descriptor_tables.o
+ .eh_frame      0x00000000000040b8       0x78 kernel/heap.o
+ .eh_frame      0x0000000000004130       0x78 kernel/isr.o
+ .eh_frame      0x00000000000041a8       0xc8 kernel/kernel.o
+ .eh_frame      0x0000000000004270      0x160 kernel/process.o
+ .eh_frame      0x00000000000043d0       0x78 kernel/scheduler.o
+ .eh_frame      0x0000000000004448      0x22c kernel/virtualmem.o
+ .eh_frame      0x0000000000004674      0x178 lib/libc.o
+ .eh_frame      0x00000000000047ec      0x1dc drivers/display.o
+ .eh_frame      0x00000000000049c8       0x58 drivers/keyboard.o
+ .eh_frame      0x0000000000004a20       0xd4 utils/shell.o
+
+.data           0x0000000000004b00      0x500
+                0x0000000000004b00                data = .
+                0x0000000000004b00                _data = .
+                0x0000000000004b00                __data = .
+ *(.data)
+ .data          0x0000000000004b00        0x0 kernel/descriptor_tables.o
+ .data          0x0000000000004b00        0x4 kernel/heap.o
+                0x0000000000004b00                next_memory_block
+ .data          0x0000000000004b04        0x0 kernel/isr.o
+ .data          0x0000000000004b04        0x0 kernel/kernel.o
+ .data          0x0000000000004b04        0x0 kernel/process.o
+ .data          0x0000000000004b04        0x0 kernel/register.o
+ .data          0x0000000000004b04        0x0 kernel/scheduler.o
+ .data          0x0000000000004b04        0x0 kernel/virtualmem.o
+ .data          0x0000000000004b04        0x0 lib/libc.o
+ .data          0x0000000000004b04        0x0 drivers/display.o
+ *fill*         0x0000000000004b04       0x1c 
+ .data          0x0000000000004b20       0x80 drivers/keyboard.o
+                0x0000000000004b20                kbdus
+ .data          0x0000000000004ba0        0x0 utils/shell.o
+ *(.rodata)
+ .rodata        0x0000000000004ba0       0xa2 kernel/virtualmem.o
+ *fill*         0x0000000000004c42        0x2 
+ .rodata        0x0000000000004c44       0x47 lib/libc.o
+ .rodata        0x0000000000004c8b       0x1f drivers/display.o
+ *fill*         0x0000000000004caa        0x2 
+ .rodata        0x0000000000004cac      0x12b utils/shell.o
+                0x0000000000005000                . = ALIGN (0x1000)
+ *fill*         0x0000000000004dd7      0x229 
+
+.bss            0x0000000000005000   0x139f40
+                0x0000000000005000                bss = .
+                0x0000000000005000                _bss = .
+                0x0000000000005000                __bss = .
+ *(.bss)
+ .bss           0x0000000000005000        0x0 kernel/descriptor_tables.o
+ .bss           0x0000000000005000        0x0 kernel/heap.o
+ .bss           0x0000000000005000        0x0 kernel/isr.o
+ .bss           0x0000000000005000        0x0 kernel/kernel.o
+ .bss           0x0000000000005000        0xc kernel/process.o
+                0x0000000000005000                next_pid
+                0x0000000000005004                new_process
+                0x0000000000005008                nb_processes
+ .bss           0x000000000000500c        0x0 kernel/register.o
+ .bss           0x000000000000500c        0x4 kernel/scheduler.o
+                0x000000000000500c                timer_ticks
+ .bss           0x0000000000005010        0x4 kernel/virtualmem.o
+                0x0000000000005010                current_page_directory
+ .bss           0x0000000000005014        0x0 lib/libc.o
+ .bss           0x0000000000005014        0x0 drivers/display.o
+ .bss           0x0000000000005014        0x0 drivers/keyboard.o
+ .bss           0x0000000000005014        0x0 utils/shell.o
+                0x0000000000006000                . = ALIGN (0x1000)
+ *fill*         0x0000000000005014      0xfec 
+ COMMON         0x0000000000006000      0x866 kernel/descriptor_tables.o
+                0x0000000000006000                idt_ptr
+                0x0000000000006020                gdt_entries
+                0x0000000000006060                idt_entries
+                0x0000000000006860                gdt_ptr
+ *fill*         0x0000000000006866       0x1a 
+ COMMON         0x0000000000006880      0x400 kernel/isr.o
+                0x0000000000006880                interrupt_handlers
+ COMMON         0x0000000000006c80        0x4 kernel/kernel.o
+                0x0000000000006c80                initial_esp
+ *fill*         0x0000000000006c84       0x1c 
+ COMMON         0x0000000000006ca0     0xc26c kernel/process.o
+                0x0000000000006ca0                process_focus
+                0x0000000000006cc0                processes
+                0x0000000000012ef4                pad
+                0x0000000000012efc                eip_global
+                0x0000000000012f00                esp_global
+                0x0000000000012f04                current_process
+                0x0000000000012f08                ebp_global
+ *fill*         0x0000000000012f0c       0x14 
+ COMMON         0x0000000000012f20   0x12c020 kernel/virtualmem.o
+                0x0000000000012f20                kernel_page_directory
+                0x0000000000012f24                forbidden_page
+                0x0000000000012f28                nb_frames
+                0x0000000000012f2c                frame_bitmap
+                0x0000000000012f40                page_tables
+                0x000000000013ef40                end = .
+                0x000000000013ef40                _end = .
+                0x000000000013ef40                __end = .
+Address of section .text set to 0x1000
+LOAD kernel/kernel_entry.o
+LOAD kernel/descriptor_tables.o
+LOAD kernel/heap.o
+LOAD kernel/isr.o
+LOAD kernel/kernel.o
+LOAD kernel/process.o
+LOAD kernel/register.o
+LOAD kernel/scheduler.o
+LOAD kernel/virtualmem.o
+LOAD lib/libc.o
+LOAD drivers/display.o
+LOAD drivers/keyboard.o
+LOAD utils/shell.o
+OUTPUT(kernel.bin binary)
+
+.debug_info     0x0000000000000000     0x2f64
+ .debug_info    0x0000000000000000      0x3df kernel/descriptor_tables.o
+ .debug_info    0x00000000000003df      0x116 kernel/heap.o
+ .debug_info    0x00000000000004f5      0x227 kernel/isr.o
+ .debug_info    0x000000000000071c      0x18e kernel/kernel.o
+ .debug_info    0x00000000000008aa      0x6e0 kernel/process.o
+ .debug_info    0x0000000000000f8a       0x41 kernel/register.o
+ .debug_info    0x0000000000000fcb      0x1ae kernel/scheduler.o
+ .debug_info    0x0000000000001179      0x869 kernel/virtualmem.o
+ .debug_info    0x00000000000019e2      0x65b lib/libc.o
+ .debug_info    0x000000000000203d      0x5fd drivers/display.o
+ .debug_info    0x000000000000263a      0x452 drivers/keyboard.o
+ .debug_info    0x0000000000002a8c      0x4d8 utils/shell.o
+
+.debug_abbrev   0x0000000000000000      0xfe8
+ .debug_abbrev  0x0000000000000000      0x116 kernel/descriptor_tables.o
+ .debug_abbrev  0x0000000000000116       0xc1 kernel/heap.o
+ .debug_abbrev  0x00000000000001d7      0x10a kernel/isr.o
+ .debug_abbrev  0x00000000000002e1       0xe3 kernel/kernel.o
+ .debug_abbrev  0x00000000000003c4      0x25e kernel/process.o
+ .debug_abbrev  0x0000000000000622       0x39 kernel/register.o
+ .debug_abbrev  0x000000000000065b       0xea kernel/scheduler.o
+ .debug_abbrev  0x0000000000000745      0x296 kernel/virtualmem.o
+ .debug_abbrev  0x00000000000009db      0x1c9 lib/libc.o
+ .debug_abbrev  0x0000000000000ba4      0x132 drivers/display.o
+ .debug_abbrev  0x0000000000000cd6      0x17a drivers/keyboard.o
+ .debug_abbrev  0x0000000000000e50      0x198 utils/shell.o
+
+.debug_aranges  0x0000000000000000      0x178
+ .debug_aranges
+                0x0000000000000000       0x20 kernel/descriptor_tables.o
+ .debug_aranges
+                0x0000000000000020       0x20 kernel/heap.o
+ .debug_aranges
+                0x0000000000000040       0x20 kernel/isr.o
+ .debug_aranges
+                0x0000000000000060       0x20 kernel/kernel.o
+ .debug_aranges
+                0x0000000000000080       0x20 kernel/process.o
+ .debug_aranges
+                0x00000000000000a0       0x18 kernel/register.o
+ .debug_aranges
+                0x00000000000000b8       0x20 kernel/scheduler.o
+ .debug_aranges
+                0x00000000000000d8       0x20 kernel/virtualmem.o
+ .debug_aranges
+                0x00000000000000f8       0x20 lib/libc.o
+ .debug_aranges
+                0x0000000000000118       0x20 drivers/display.o
+ .debug_aranges
+                0x0000000000000138       0x20 drivers/keyboard.o
+ .debug_aranges
+                0x0000000000000158       0x20 utils/shell.o
+
+.debug_line     0x0000000000000000      0xbd4
+ .debug_line    0x0000000000000000      0x108 kernel/descriptor_tables.o
+ .debug_line    0x0000000000000108       0x6b kernel/heap.o
+ .debug_line    0x0000000000000173       0x67 kernel/isr.o
+ .debug_line    0x00000000000001da       0x6c kernel/kernel.o
+ .debug_line    0x0000000000000246      0x188 kernel/process.o
+ .debug_line    0x00000000000003ce       0x32 kernel/register.o
+ .debug_line    0x0000000000000400       0x6a kernel/scheduler.o
+ .debug_line    0x000000000000046a      0x237 kernel/virtualmem.o
+ .debug_line    0x00000000000006a1      0x166 lib/libc.o
+ .debug_line    0x0000000000000807      0x1a0 drivers/display.o
+ .debug_line    0x00000000000009a7       0xb4 drivers/keyboard.o
+ .debug_line    0x0000000000000a5b      0x179 utils/shell.o
+
+.debug_str      0x0000000000000000     0x1868
+ .debug_str     0x0000000000000000      0x26f kernel/descriptor_tables.o
+ .debug_str     0x000000000000026f       0xfd kernel/heap.o
+ .debug_str     0x000000000000036c      0x152 kernel/isr.o
+ .debug_str     0x00000000000004be      0x10c kernel/kernel.o
+ .debug_str     0x00000000000005ca      0x39e kernel/process.o
+ .debug_str     0x0000000000000968       0x96 kernel/register.o
+ .debug_str     0x00000000000009fe      0x143 kernel/scheduler.o
+ .debug_str     0x0000000000000b41      0x3f1 kernel/virtualmem.o
+ .debug_str     0x0000000000000f32      0x2bd lib/libc.o
+ .debug_str     0x00000000000011ef      0x1c7 drivers/display.o
+ .debug_str     0x00000000000013b6      0x260 drivers/keyboard.o
+ .debug_str     0x0000000000001616      0x252 utils/shell.o
+
+.comment        0x0000000000000000       0xd8
+ .comment       0x0000000000000000       0x12 kernel/descriptor_tables.o
+ .comment       0x0000000000000012       0x12 kernel/heap.o
+ .comment       0x0000000000000024       0x12 kernel/isr.o
+ .comment       0x0000000000000036       0x12 kernel/kernel.o
+ .comment       0x0000000000000048       0x12 kernel/process.o
+ .comment       0x000000000000005a       0x12 kernel/register.o
+ .comment       0x000000000000006c       0x12 kernel/scheduler.o
+ .comment       0x000000000000007e       0x12 kernel/virtualmem.o
+ .comment       0x0000000000000090       0x12 lib/libc.o
+ .comment       0x00000000000000a2       0x12 drivers/display.o
+ .comment       0x00000000000000b4       0x12 drivers/keyboard.o
+ .comment       0x00000000000000c6       0x12 utils/shell.o
