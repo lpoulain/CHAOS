@@ -1,16 +1,31 @@
 ## CHAOS (CHeers, Another Operating System)
 
-CHAOS is a simple operating system I am writing from scratch in assembly and C in order to better understand how operating systems work.
+CHAOS is a simple 32-bit multitasking operating system I am writing from scratch in assembly and C in order to better understand how operating systems work.
 
 So far, here is what it does:
 
-- The boot sector reads the kernel from disk and loads it into memory
+#### Bootloader
+
+- The boot sector reads the kernel from disk (from sector #2) and loads it into memory (at address 0x1000)
 - It switches to the i386 32-bit protected mode
-- It runs the kernel code loaded into memory
-- That kernel has two "device drivers": one for the screen, one for the keyboard
-- It also sets up interruptions in order to be able to catch keystrokes
-- It launches two basic shells which have each two commands: cls and help
-- You switch from one shell to another using the tab key
+- It executes the kernel code loaded into memory
+
+#### The kernel
+
+The kernel sets up several things:
+
+- A "device driver" to handle displaying on the screen
+- Heap: a very primitive heap mechanism (i.e. malloc())
+- Interrupts: This is used to capture keystrokes. Note that the keyboard handler is merely storing the keystroke in the process buffer
+- Processes: each process has its own display (i.e. a window on the screen), stack, etc.
+- Paging. This allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" which is filled with 0xFFFFFFFF. Each process has their own virtual memory mapping.
+- Multitasking: the interrupts are also used to have a scheduler function called at regular intervals. This allows to perform context switches automatically.
+
+#### The processes
+
+The operating system launches two processes, each one represented by a shell in its own window (type "help to see the available commands"). Those processes are run concurrently and can perform tasks in parallel (this is the purpose of the "countdown" command). Press the Tab key to switch from one shell to the other.
+
+When the processes are waiting for a keyboard input, they are in polling mode, which means they are waiting for the keyboard handler to store any keystroke in their buffer. A process in polling mode is not being given cycles by the scheduler.
 
 #### How to run it
 

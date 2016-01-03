@@ -4,6 +4,8 @@
 [org 0x7c00]                ; Location of the code in memory
 
 KERNEL_ADDRESS equ 0x1000
+KERNEL_ADDRESS2 equ 0x3400
+KERNEL_ADDRESS3 equ 0x5800
 
 mov ax, 0x0
 mov es, ax
@@ -25,20 +27,21 @@ start:
     mov sp, bp              ; sp = Stack Pointer
 
     ; Prints the welcome message
-    mov si, WELCOME_MSG     ; Put string position into SI
+    mov si, BOOT_MSG     ; Put string position into SI
     call print_string       ; Call our string-printing routine
 
     ; Loads the kernel in memory
-    mov dh, 0x20            ; Loads 16 sectors
+    mov dh, 0x24            ; Loads 48 sectors
     mov dl, [BOOT_DRIVE]    ; From drive [BOOT_DRIVE]
+    mov ch, 0
     mov bx, KERNEL_ADDRESS  ; And stores them at 0x1000
     call read_from_disk
 
-;    mov si, 0x1000          ; Prints the content on the screen
-;    call print_string
-
-;    mov dx, 0x1000
-;    call print_hex
+    mov dh, 0x12            ; Loads 48 sectors
+    mov dl, [BOOT_DRIVE]    ; From drive [BOOT_DRIVE]
+    mov ch, 1
+    mov bx, KERNEL_ADDRESS3  ; And stores them at 0x1000
+    call read_from_disk
 
     ; Switches to protected mode
     call switch_to_protected_mode
@@ -55,7 +58,7 @@ start:
 
 ; Global variables 
     BOOT_DRIVE: db 0
-    WELCOME_MSG: db 'Welcome to Laurent OS!', 10,13, 0
+    BOOT_MSG: db 'Booting CHAOS', 10,13, 0
 
     times 510-($-$$) db 0   ; Pad remainder of boot sector with 0s
     dw 0xAA55               ; The standard PC boot signature

@@ -17,9 +17,8 @@ print_string:
 
 
 print_hex :
-	; TODO : manipulate chars at HEX_OUT to reflect DX
-	mov bx , HEX_OUT ; print the string pointed to
-	call print_string ; by BX
+	mov bx , HEX_OUT 	; print the string pointed to
+	call print_string 	; by BX
 	ret
 
 
@@ -30,7 +29,7 @@ read_from_disk:
 
 	mov ah, 0x02		; BIOS read sector function
 	mov al, dh			; Reads DH sectors
-	mov ch, 0			; Select cylinder 0
+;	mov ch, 0			; Select cylinder 0 (actually set by the calling program)
 	mov dh, 0 			; Select head 0
 	mov cl, 2 			; Start at the second sector (right after the boot sector)
 

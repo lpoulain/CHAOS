@@ -1,12 +1,13 @@
+#include "libc.h"
 #include "kernel.h"
 #include "keyboard.h"
 #include "process.h"
+#include "isr.h"
 
-/* KBDUS means US Keyboard Layout. This is a scancode table
-*  used to layout a standard US keyboard. I have left some
-*  comments in to give you an idea of what key is what, even
-*  though I set it's array index to 0. You can change that to
-*  whatever you want using a macro, if you wish! */
+extern process *current_process;
+extern void stack_dump();
+
+// US Keyboard layout
 unsigned char kbdus[128] =
 {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
@@ -47,58 +48,55 @@ unsigned char kbdus[128] =
     0,	/* All other keys are undefined */
 };
 
-// Other functions can call keyboard_set_callback() when they want
-// to be called back when a key is pressed
-callback_fct keyboard_callback;
-
-void keyboard_set_callback(callback_fct cb)
-{
-    keyboard_callback = cb;
-}
-
 /* Handles the keyboard interrupt */
-void keyboard_handler(struct regs *r)
+static void keyboard_handler(registers_t regs)
 {
     unsigned char scancode;
 
-    /* Read from the keyboard's data buffer */
+    // Read the scan code of the key pressed
     scancode = inportb(0x60);
 
-    /* If the top bit of the byte we read from the keyboard is
-    *  set, that means that a key has just been released */
+    // If the key has just been released
     if (scancode & 0x80)
     {
-        /* You can use this one to see if the user released the
-        *  shift, alt, or control keys... */
+        // Handle the case where the user released the shift, alt or control key
     }
     else
     {
-        /* Here, a key was just pressed. Please note that if you
-        *  hold a key down, you will get repeated key press
-        *  interrupts. */
+        // Handle the case where a pkey was pressed
 
-        /* Just to show you how this works, we simply translate
-        *  the keyboard scancode into an ASCII value, and then
-        *  display it to the screen. You can get creative and
-        *  use some flags to see if a shift is pressed and use a
-        *  different layout, or you can add another 128 entries
-        *  to the above layout to correspond to 'shift' being
-        *  held. If shift is held using the larger lookup table,
-        *  you would add 128 to the scancode when you look for it */
-        if (kbdus[scancode] == '\t') {
-            switch_process();
+        // If we press the Esc key, print a stack trace
+        if (scancode == 1) {
+            stack_dump();
             return;
         }
 
-        if (keyboard_callback != 0) {
-            keyboard_callback(kbdus[scancode]);
+        // If it is not an actionable key, do nothing
+        if (kbdus[scancode] == 0) return;
+
+        // If the user has pressed tab, switch the focus process
+        if (kbdus[scancode] == '\t') {
+            switch_process_focus();
+            return;
         }
+
+        // The keyboard handler does not process keystrokes per say
+        // It looks at the process which has the focus
+        // If that process has the PROCESS_POLLING flag turned on
+        // it means it is waiting for keyboard input
+        // The handler is thus filling the process buffer and flipping
+        // off the PROCESS_POLLING flag
+        process *ps = get_process_focus();
+        if (ps->flags | PROCESS_POLLING) {
+            ps->buffer = kbdus[scancode];
+            ps->flags &= ~PROCESS_POLLING;
+        }
+
     }
 }
 
 /* Installs the keyboard handler into IRQ1 */
-void keyboard_install()
+void init_keyboard()
 {
-    keyboard_set_callback(0);
-    irq_install_handler(1, keyboard_handler);
+    register_interrupt_handler(IRQ1, &keyboard_handler);
 }

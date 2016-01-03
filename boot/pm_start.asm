@@ -34,4 +34,4 @@ pm_started:
     jmp $
 
 ; Global variables 
-    PROTECTED_MODE_MSG: db 'Successfully switched to protected mode', 0	
+    PROTECTED_MODE_MSG: db 'Welcome to CHAOS (CHeers, Another Operating System)!', 0	

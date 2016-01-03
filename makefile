@@ -1,7 +1,14 @@
+SDIR = kernel lib drivers utils
 C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c)
 HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h)
 OBJ = ${C_SOURCES:.c=.o}
 INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils
+
+TEST_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c tests/*.c)
+TEST_HEADERS = $(wildcard tests/*.h)
+TEST_OBJ = $(patsubst kernel/%.o, tests/%.o, $(OBJ))
+TEST_INCLUDE= -I ./tests
+TEST_SDIR = kernel lib drivers utils tests
 
 All: chaos.img
 
@@ -14,13 +21,13 @@ boot.bin:	boot/boot.asm boot/bios.asm boot/pm_gdt.asm boot/pm_start.asm boot/pm_
 	nasm -f bin -o boot.bin boot/boot.asm
 
 %.o : %.c ${HEADERS}
-	gcc -m32 -std=gnu99 -ffreestanding $(INCLUDE) -c $< -o $@
+	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -ffreestanding $(INCLUDE) -g -c $< -o $@
 
 kernel/kernel_entry.o: kernel/kernel_entry.asm
 	nasm kernel/kernel_entry.asm -f elf -o kernel/kernel_entry.o
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
-	ld -m elf_i386 -o kernel.bin -Ttext 0x1000 $^ --oformat binary
+	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -o kernel.bin -Ttext 0x1000 $^ --oformat binary -Map kernel.map
 
 clean:
 	rm -rf chaos.img

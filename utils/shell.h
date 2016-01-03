@@ -1,6 +1,10 @@
 #ifndef __SHELL_H
 #define __SHELL_H
 
-void start_shell(struct display *);
+#include "display.h"
+
+void shell();
+void start_shell(display *);
+void callback(unsigned char c);
 
 #endif
