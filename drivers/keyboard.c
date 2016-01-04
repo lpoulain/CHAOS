@@ -48,6 +48,47 @@ unsigned char kbdus[128] =
     0,	/* All other keys are undefined */
 };
 
+unsigned char kbdus_shift[128] =
+{
+    0,  27, '!', '@', '#', '$', '%', '^', '&', '*', /* 9 */
+  '(', ')', '_', '+', '\b', /* Backspace */
+  '\t',         /* Tab */
+  'Q', 'W', 'E', 'R',   /* 19 */
+  'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',     /* Enter key */
+    0,          /* 29   - Control */
+  'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', /* 39 */
+ '\"', '~',   0,        /* Left shift */
+ '|', 'Z', 'X', 'C', 'V', 'B', 'N',            /* 49 */
+  'M', '<', '>', '?',   0,                  /* Right shift */
+  '*',
+    0,  /* Alt */
+  ' ',  /* Space bar */
+    0,  /* Caps lock */
+    0,  /* 59 - F1 key ... > */
+    0,   0,   0,   0,   0,   0,   0,   0,
+    0,  /* < ... F10 */
+    0,  /* 69 - Num lock*/
+    0,  /* Scroll Lock */
+    0,  /* Home key */
+    0,  /* Up Arrow */
+    0,  /* Page Up */
+  '-',
+    0,  /* Left Arrow */
+    0,
+    0,  /* Right Arrow */
+  '+',
+    0,  /* 79 - End key*/
+    0,  /* Down Arrow */
+    0,  /* Page Down */
+    0,  /* Insert Key */
+    0,  /* Delete Key */
+    0,   0,   0,
+    0,  /* F11 Key */
+    0,  /* F12 Key */
+    0,  /* All other keys are undefined */
+};
+uint shift_key_pressed = 0;
+
 /* Handles the keyboard interrupt */
 static void keyboard_handler(registers_t regs)
 {
@@ -60,10 +101,18 @@ static void keyboard_handler(registers_t regs)
     if (scancode & 0x80)
     {
         // Handle the case where the user released the shift, alt or control key
+        scancode &= ~0x80;
+        if (scancode == 42 || scancode == 54) shift_key_pressed = 0;
     }
     else
     {
         // Handle the case where a pkey was pressed
+
+        // Shift is pressed
+        if (scancode == 42 || scancode == 54) {
+            shift_key_pressed = 1;
+            return;
+        }
 
         // If we press the Esc key, print a stack trace
         if (scancode == 1) {
@@ -71,11 +120,15 @@ static void keyboard_handler(registers_t regs)
             return;
         }
 
+        char c;
+        if (shift_key_pressed) c = kbdus_shift[scancode];
+        else c = kbdus[scancode];
+
         // If it is not an actionable key, do nothing
-        if (kbdus[scancode] == 0) return;
+        if (c == 0) return;
 
         // If the user has pressed tab, switch the focus process
-        if (kbdus[scancode] == '\t') {
+        if (c == '\t') {
             switch_process_focus();
             return;
         }
@@ -88,7 +141,7 @@ static void keyboard_handler(registers_t regs)
         // off the PROCESS_POLLING flag
         process *ps = get_process_focus();
         if (ps->flags | PROCESS_POLLING) {
-            ps->buffer = kbdus[scancode];
+            ps->buffer = c;
             ps->flags &= ~PROCESS_POLLING;
         }
 

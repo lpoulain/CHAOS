@@ -190,7 +190,7 @@ void init_virtualmem()
     // Note that we map beyond the current end of the heap
     // Because we also map future heap
     addr = 0;
-    while (addr < next_memory_block + 0x10000)
+    while (addr < next_memory_block + 0x10000 && addr < 0x1000000)
     {
         // Kernel code is readable but not writeable from userspace.
         map_page(addr, addr, 1, 1);

@@ -1,6 +1,7 @@
 #include "libc.h"
 #include "shell.h"
 #include "process.h"
+#include "parser.h"
 
 extern process *current_process;
 extern void stack_dump();
@@ -22,7 +23,66 @@ void countdown(display *disp) {
 	putcr(disp);
 }
 
+extern token tokens[10];
+extern int nb_tokens;
+
 void process_command(display *disp) {
+	int res = parse(disp->buffer);
+	if (res <= 0) {
+		puts(disp, "Syntax error (character ");
+		putnb(disp, 1-res);
+		puts(disp, ")");
+		putcr(disp);
+	}
+/*
+	for (int i=0; i<nb_tokens; i++) {
+		puts(disp, "Token: ");
+		puti(disp, tokens[i].code);
+		puts(disp, " ");
+		switch(tokens[i].code) {
+			case PARSE_WORD:
+				puts(disp, tokens[i].value);
+				break;
+			case PARSE_NUMBER:
+				puti(disp, (uint)tokens[i].value);
+				break;
+		}
+		putcr(disp);
+	}*/
+
+	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_PLUS && tokens[2].code == PARSE_NUMBER) {
+		puts(disp, "=> ");
+		putnb(disp, (uint)tokens[0].value + (uint)tokens[2].value);
+		putcr(disp);
+		return;
+	}
+
+	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_MINUS && tokens[2].code == PARSE_NUMBER) {
+		puts(disp, "=> ");
+		putnb(disp, (uint)tokens[0].value - (uint)tokens[2].value);
+		putcr(disp);
+		return;
+	}
+
+	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_MULT && tokens[2].code == PARSE_NUMBER) {
+		puts(disp, "=> ");
+		putnb(disp, (uint)tokens[0].value * (uint)tokens[2].value);
+		putcr(disp);
+		return;
+	}
+
+	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_DIV && tokens[2].code == PARSE_NUMBER) {
+		if ((uint)tokens[2].value == 0) {
+			puts(disp, "Error: division by zero");
+			putcr(disp);
+			return;
+		}
+		puts(disp, "=> ");
+		putnb(disp, (uint)tokens[0].value / (uint)tokens[2].value);
+		putcr(disp);
+		return;
+	}
+
 	if (!strcmp(disp->buffer, "cls")) {
 		cls(disp);
 		return;
@@ -35,6 +95,7 @@ void process_command(display *disp) {
 		puts(disp, "- stack: prints the stack trace"); putcr(disp);
 		puts(disp, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); putcr(disp);
 		puts(disp, "- mem [hex address]: memory dump (to test paging)"); putcr(disp);
+		puts(disp, "- [number] [operation] [number]: basic arithmetic operations");
 		putcr(disp);
 		return;
 	}
@@ -81,7 +142,7 @@ void process_command(display *disp) {
 	putcr(disp);
 }
 
-void callback(unsigned char c) {
+void process_char(unsigned char c) {
 	display *disp = &get_process_focus()->disp;
 
 	// If a shift key is pressed
@@ -153,6 +214,6 @@ void shell() {
 
 	for (;;) {
 		unsigned char c = poll();
-		callback(c);
+		process_char(c);
 	}
 }

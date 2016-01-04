@@ -22,6 +22,7 @@ void print_hex2(char b, int row, int col);
 void puts(display *disp, const char *);
 void putc(display *disp, char);
 void puti(display *disp, uint);
+void putnb(display *disp, uint nb);
 void cls(display *disp);
 void putcr(display *disp);
 void backspace(display *disp);

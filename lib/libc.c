@@ -14,6 +14,11 @@ char *strcpy(char *dest, const char *src) {
     return save;	
 }
 
+char *strncpy(char *dest, const char *src, int n) {
+    while (n-- && (*dest++ = *src++));
+    return dest;
+}
+
 int strcmp(const char *s1, const char *s2)
 {
     for ( ; *s1 == *s2; s1++, s2++)
@@ -55,6 +60,19 @@ void memset(void *dest, u8int val, uint len)
 void getch() {
     current_process->buffer = 0;
     while (!current_process->buffer);
+}
+
+int atoi(char *str)
+{
+    int res = 0; // Initialize result
+  
+    // Iterate through all characters of input string and
+    // update result
+    for (int i = 0; str[i] != '\0'; ++i)
+        res = res*10 + str[i] - '0';
+  
+    // return result.
+    return res;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

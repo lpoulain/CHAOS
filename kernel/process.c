@@ -53,6 +53,7 @@ process *get_new_process(page_directory *dir) {
     ps->eip = 0;
     ps->page_dir = dir;
     ps->flags = 0;
+    ps->buffer = 0;
 
     return ps;
 }

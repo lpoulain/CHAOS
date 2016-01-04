@@ -79,6 +79,26 @@ void puti(display *disp, uint i) {
 	puts(disp, loc);
 }
 
+// Prints a number on the display
+void putnb(display *disp, uint nb) {
+	uint nb_ref = 1000000000;
+	uint leading_zero = 1;
+	uint digit;
+
+	for (int i=0; i<=9; i++) {
+		if (nb >= nb_ref) {
+			digit = nb / nb_ref;
+			putc(disp, '0' + digit);
+			nb -= nb_ref * digit;
+
+			leading_zero = 0;
+		} else {
+			if (!leading_zero) putc(disp, '0');
+		}
+		nb_ref /= 10;
+	}
+}
+
 // When the user presses backspace
 void backspace(display *disp) {
 	// We don't want to go before the video buffer
@@ -194,4 +214,5 @@ void init_display(display *disp, int row_start, int row_end, int color) {
 	disp->end_address = (unsigned char*)VIDEO_ADDRESS + (row_end + 1) * 160;
 	disp->cursor_address = disp->start_address;
 	disp->text_color = color;
+	disp->buffer_end = 0;
 }
