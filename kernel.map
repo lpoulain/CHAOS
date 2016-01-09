@@ -4,9 +4,10 @@ Common symbol       size              file
 
 process_focus       0x4               kernel/process.o
 idt_ptr             0x6               kernel/descriptor_tables.o
-processes           0xc234            kernel/process.o
+processes           0xc3b4            kernel/process.o
 gdt_entries         0x28              kernel/descriptor_tables.o
 pad                 0x7               kernel/process.o
+nb_tokens           0x4               utils/parser.o
 initial_esp         0x4               kernel/kernel.o
 eip_global          0x4               kernel/process.o
 idt_entries         0x800             kernel/descriptor_tables.o
@@ -17,6 +18,7 @@ nb_frames           0x4               kernel/virtualmem.o
 gdt_ptr             0x6               kernel/descriptor_tables.o
 esp_global          0x4               kernel/process.o
 interrupt_handlers  0x400             kernel/isr.o
+tokens              0x78              utils/parser.o
 current_process     0x4               kernel/process.o
 frame_bitmap        0x4               kernel/virtualmem.o
 ebp_global          0x4               kernel/process.o
@@ -29,246 +31,360 @@ Name             Origin             Length             Attributes
 
 Linker script and memory map
 
+                0x0000000000100000                . = 0x100000
 
-.text           0x0000000000001000     0x3000
-                0x0000000000001000                code = .
-                0x0000000000001000                _code = .
-                0x0000000000001000                __code = .
+.text           0x0000000000100000     0x4605
+                0x0000000000100000                code = .
+                0x0000000000100000                _code = .
+                0x0000000000100000                __code = .
+ *(.multiboot)
+ .multiboot     0x0000000000100000        0xc kernel/kernel_entry.o
  *(.text)
- .text          0x0000000000001000      0x270 kernel/kernel_entry.o
-                0x0000000000001008                stack_dump
-                0x0000000000001014                get_eip
-                0x0000000000001018                read_eip
-                0x000000000000101b                context_switch
-                0x000000000000101e                gdt_flush
-                0x000000000000103b                idt_flush
-                0x0000000000001043                isr0
-                0x000000000000104d                isr1
-                0x0000000000001057                isr2
-                0x0000000000001061                isr3
-                0x000000000000106b                isr4
-                0x0000000000001075                isr5
-                0x000000000000107f                isr6
-                0x0000000000001089                isr7
-                0x0000000000001093                isr8
-                0x000000000000109b                isr9
-                0x00000000000010a5                isr10
-                0x00000000000010ad                isr11
-                0x00000000000010b5                isr12
-                0x00000000000010bd                isr13
-                0x00000000000010c5                isr14
-                0x00000000000010cd                isr15
-                0x00000000000010d7                isr16
-                0x00000000000010e1                isr17
-                0x00000000000010eb                isr18
-                0x00000000000010f5                isr19
-                0x00000000000010ff                isr20
-                0x0000000000001109                isr21
-                0x0000000000001113                isr22
-                0x000000000000111d                isr23
-                0x0000000000001127                isr24
-                0x0000000000001131                isr25
-                0x000000000000113b                isr26
-                0x0000000000001145                isr27
-                0x000000000000114f                isr28
-                0x0000000000001159                isr29
-                0x0000000000001163                isr30
-                0x000000000000116d                isr31
-                0x0000000000001174                irq0
-                0x000000000000117e                irq1
-                0x0000000000001188                irq2
-                0x0000000000001192                irq3
-                0x0000000000001199                irq4
-                0x00000000000011a0                irq5
-                0x00000000000011a7                irq6
-                0x00000000000011ae                irq7
-                0x00000000000011b5                irq8
-                0x00000000000011bc                irq9
-                0x00000000000011c3                irq10
-                0x00000000000011ca                irq11
-                0x00000000000011d1                irq12
-                0x00000000000011d8                irq13
-                0x00000000000011df                irq14
-                0x00000000000011e6                irq15
-                0x0000000000001237                copy_physical_page
- .text          0x0000000000001270      0x717 kernel/descriptor_tables.o
-                0x0000000000001270                init_descriptor_tables
- .text          0x0000000000001987       0x94 kernel/heap.o
-                0x0000000000001987                init_heap
-                0x000000000000198d                kmalloc
-                0x00000000000019be                kmalloc_a
- .text          0x0000000000001a1b       0xfe kernel/isr.o
-                0x0000000000001a1b                register_interrupt_handler
-                0x0000000000001a38                isr_handler
-                0x0000000000001a94                irq_handler
- .text          0x0000000000001b19       0xd0 kernel/kernel.o
-                0x0000000000001b19                inportb
-                0x0000000000001b36                outportb
-                0x0000000000001b55                outb
-                0x0000000000001b74                inb
-                0x0000000000001b91                main
- .text          0x0000000000001be9      0x58c kernel/process.o
-                0x0000000000001be9                get_process_focus
-                0x0000000000001bf3                init_processes
-                0x0000000000001c5e                get_new_process
-                0x0000000000001d0e                init_tasking
-                0x0000000000001d54                move_stack
-                0x0000000000001e3b                copy_stack
-                0x0000000000001ef6                switch_process
-                0x0000000000002059                switch_process_focus
-                0x0000000000002086                fork
-                0x0000000000002169                getpid
- .text          0x0000000000002175        0x0 kernel/register.o
- .text          0x0000000000002175       0x85 kernel/scheduler.o
-                0x0000000000002175                scheduler_phase
-                0x00000000000021df                init_scheduler
- .text          0x00000000000021fa      0xa18 kernel/virtualmem.o
-                0x000000000000237f                map_to_first_available
-                0x000000000000244e                map_page
-                0x00000000000024f2                unmap_page
-                0x000000000000254e                get_PTE_val
-                0x0000000000002574                map_forbidden
-                0x0000000000002592                get_PTE
-                0x0000000000002637                init_virtualmem
-                0x000000000000274f                switch_page_directory
-                0x00000000000028dc                clone_page_directory
-                0x0000000000002996                print_page_directory
- .text          0x0000000000002c12      0x3b9 lib/libc.o
-                0x0000000000002c12                strcpy
-                0x0000000000002c42                strcmp
-                0x0000000000002c8f                strlen
-                0x0000000000002cb7                strncmp
-                0x0000000000002d14                memcpy
-                0x0000000000002d4c                memset
-                0x0000000000002d7c                getch
-                0x0000000000002d99                debug_i
-                0x0000000000002de4                debug
-                0x0000000000002e04                C_stack_dump
-                0x0000000000002e98                dump_mem
- .text          0x0000000000002fcb      0x70d drivers/display.o
-                0x0000000000002fcb                set_cursor
-                0x0000000000003039                scroll
-                0x00000000000030d3                putcr
-                0x0000000000003142                putc
-                0x00000000000031ac                puti
-                0x0000000000003284                backspace
-                0x00000000000032b3                puts
-                0x00000000000032e0                print
-                0x0000000000003357                cls
-                0x00000000000033af                print_hex
-                0x0000000000003465                print_hex2
-                0x0000000000003519                print_ptr
-                0x00000000000035f3                print_int
-                0x0000000000003688                init_display
- .text          0x00000000000036d8       0xa0 drivers/keyboard.o
-                0x000000000000375d                init_keyboard
- .text          0x0000000000003778      0x55f utils/shell.o
-                0x0000000000003778                prompt
-                0x0000000000003794                countdown
-                0x0000000000003815                process_command
-                0x0000000000003af4                callback
-                0x0000000000003c49                poll
-                0x0000000000003c91                shell
-                0x0000000000004000                . = ALIGN (0x1000)
- *fill*         0x0000000000003cd7      0x329 
+ *fill*         0x000000000010000c        0x4 
+ .text          0x0000000000100010      0x274 kernel/kernel_entry.o
+                0x0000000000100010                _start
+                0x000000000010001c                stack_dump
+                0x0000000000100028                get_eip
+                0x000000000010002c                read_eip
+                0x000000000010002f                context_switch
+                0x0000000000100032                gdt_flush
+                0x000000000010004f                idt_flush
+                0x0000000000100057                isr0
+                0x0000000000100061                isr1
+                0x000000000010006b                isr2
+                0x0000000000100075                isr3
+                0x000000000010007f                isr4
+                0x0000000000100089                isr5
+                0x0000000000100093                isr6
+                0x000000000010009d                isr7
+                0x00000000001000a7                isr8
+                0x00000000001000af                isr9
+                0x00000000001000b9                isr10
+                0x00000000001000c1                isr11
+                0x00000000001000c9                isr12
+                0x00000000001000d1                isr13
+                0x00000000001000d9                isr14
+                0x00000000001000e1                isr15
+                0x00000000001000eb                isr16
+                0x00000000001000f5                isr17
+                0x00000000001000ff                isr18
+                0x0000000000100109                isr19
+                0x0000000000100113                isr20
+                0x000000000010011d                isr21
+                0x0000000000100127                isr22
+                0x0000000000100131                isr23
+                0x000000000010013b                isr24
+                0x0000000000100145                isr25
+                0x000000000010014f                isr26
+                0x0000000000100159                isr27
+                0x0000000000100163                isr28
+                0x000000000010016d                isr29
+                0x0000000000100177                isr30
+                0x0000000000100181                isr31
+                0x0000000000100188                irq0
+                0x0000000000100192                irq1
+                0x000000000010019c                irq2
+                0x00000000001001a6                irq3
+                0x00000000001001ad                irq4
+                0x00000000001001b4                irq5
+                0x00000000001001bb                irq6
+                0x00000000001001c2                irq7
+                0x00000000001001c9                irq8
+                0x00000000001001d0                irq9
+                0x00000000001001d7                irq10
+                0x00000000001001de                irq11
+                0x00000000001001e5                irq12
+                0x00000000001001ec                irq13
+                0x00000000001001f3                irq14
+                0x00000000001001fa                irq15
+                0x000000000010024b                copy_physical_page
+ .text          0x0000000000100284      0x717 kernel/descriptor_tables.o
+                0x0000000000100284                init_descriptor_tables
+ .text          0x000000000010099b       0x94 kernel/heap.o
+                0x000000000010099b                init_heap
+                0x00000000001009a1                kmalloc
+                0x00000000001009d2                kmalloc_a
+ .text          0x0000000000100a2f       0xfe kernel/isr.o
+                0x0000000000100a2f                register_interrupt_handler
+                0x0000000000100a4c                isr_handler
+                0x0000000000100aa8                irq_handler
+ .text          0x0000000000100b2d       0xd5 kernel/kernel.o
+                0x0000000000100b2d                inportb
+                0x0000000000100b4a                outportb
+                0x0000000000100b69                outb
+                0x0000000000100b88                inb
+                0x0000000000100ba5                main
+ .text          0x0000000000100c02      0x5b5 kernel/process.o
+                0x0000000000100c02                get_process_focus
+                0x0000000000100c0c                init_processes
+                0x0000000000100c77                get_new_process
+                0x0000000000100d2e                init_tasking
+                0x0000000000100d74                move_stack
+                0x0000000000100e5b                copy_stack
+                0x0000000000100f16                switch_process
+                0x0000000000101079                switch_process_focus
+                0x00000000001010a6                fork
+                0x0000000000101189                getpid
+                0x0000000000101195                error
+ .text          0x00000000001011b7        0x0 kernel/register.o
+ .text          0x00000000001011b7       0x85 kernel/scheduler.o
+                0x00000000001011b7                scheduler_phase
+                0x0000000000101221                init_scheduler
+ .text          0x000000000010123c      0xa5c kernel/virtualmem.o
+                0x00000000001013c1                map_to_first_available
+                0x0000000000101490                map_page
+                0x0000000000101534                unmap_page
+                0x0000000000101590                get_PTE_val
+                0x00000000001015b6                map_forbidden
+                0x00000000001015d4                get_PTE
+                0x0000000000101679                init_virtualmem
+                0x00000000001017d5                switch_page_directory
+                0x0000000000101962                clone_page_directory
+                0x0000000000101a1c                print_page_directory
+ .text          0x0000000000101c98      0x499 lib/libc.o
+                0x0000000000101c98                strcpy
+                0x0000000000101cc8                strncpy
+                0x0000000000101cfc                strcmp
+                0x0000000000101d49                strlen
+                0x0000000000101d71                strncmp
+                0x0000000000101dce                memcpy
+                0x0000000000101e06                memset
+                0x0000000000101e36                getch
+                0x0000000000101e53                atoi
+                0x0000000000101ea5                debug_i
+                0x0000000000101ef0                debug
+                0x0000000000101f10                C_stack_dump
+                0x0000000000101fa4                dump_mem
+ .text          0x0000000000102131      0x829 drivers/display.o
+                0x0000000000102131                set_cursor
+                0x000000000010219f                scroll
+                0x0000000000102239                putcr
+                0x00000000001022a8                putc
+                0x0000000000102312                puti
+                0x00000000001023ea                putnb
+                0x0000000000102477                backspace
+                0x00000000001024a6                puts
+                0x00000000001024d3                print
+                0x000000000010254a                cls
+                0x00000000001025a2                init_screen
+                0x00000000001025e3                print_hex
+                0x0000000000102699                print_hex2
+                0x000000000010274d                print_ptr
+                0x0000000000102827                print_int
+                0x00000000001028bc                print_c
+                0x00000000001028fd                init_display
+ .text          0x000000000010295a      0x857 drivers/floppy.o
+                0x0000000000102981                floppy_poll
+                0x000000000010299b                flpydsk_initialize_dma
+                0x0000000000102a3d                flpydsk_dma_read
+                0x0000000000102a73                flpydsk_dma_write
+                0x0000000000102aa9                flpydsk_read_status
+                0x0000000000102ac1                flpydsk_write_dor
+                0x0000000000102ae5                flpydsk_send_command
+                0x0000000000102b29                flpydsk_read_data
+                0x0000000000102b67                flpydsk_write_ccr
+                0x0000000000102b8b                flpydsk_wait_irq
+                0x0000000000102ba5                flpydsk_check_int
+                0x0000000000102bd5                flpydsk_control_motor
+                0x0000000000102c74                flpydsk_drive_data
+                0x0000000000102ce6                flpydsk_calibrate
+                0x0000000000102d82                flpydsk_disable_controller
+                0x0000000000102d98                flpydsk_enable_controller
+                0x0000000000102dae                flpydsk_reset
+                0x0000000000102e22                flpydsk_read_sector_imp
+                0x0000000000102f1d                flpydsk_seek
+                0x0000000000102fba                flpydsk_lba_to_chs
+                0x0000000000103009                flpydsk_install
+                0x000000000010302c                flpydsk_set_working_drive
+                0x000000000010304a                flpydsk_get_working_drive
+                0x0000000000103056                flpydsk_read_sector
+                0x00000000001030fe                init_floppy
+                0x0000000000103133                floppy_test_read
+ .text          0x00000000001031b1       0xe9 drivers/keyboard.o
+                0x000000000010327f                init_keyboard
+ .text          0x000000000010329a      0x9c0 utils/parser.o
+                0x000000000010329a                atoi_substr
+                0x00000000001032e4                parse
+                0x0000000000103833                operation
+                0x00000000001038df                is_math_formula
+ .text          0x0000000000103c5a      0x9ab utils/shell.o
+                0x0000000000103c5a                prompt
+                0x0000000000103c76                countdown
+                0x0000000000103cf7                process_command
+                0x000000000010424d                process_char
+                0x0000000000104537                poll
+                0x000000000010457f                shell
 
-.eh_frame       0x0000000000004000      0xaf4
- .eh_frame      0x0000000000004000       0xb8 kernel/descriptor_tables.o
- .eh_frame      0x00000000000040b8       0x78 kernel/heap.o
- .eh_frame      0x0000000000004130       0x78 kernel/isr.o
- .eh_frame      0x00000000000041a8       0xc8 kernel/kernel.o
- .eh_frame      0x0000000000004270      0x160 kernel/process.o
- .eh_frame      0x00000000000043d0       0x78 kernel/scheduler.o
- .eh_frame      0x0000000000004448      0x22c kernel/virtualmem.o
- .eh_frame      0x0000000000004674      0x178 lib/libc.o
- .eh_frame      0x00000000000047ec      0x1dc drivers/display.o
- .eh_frame      0x00000000000049c8       0x58 drivers/keyboard.o
- .eh_frame      0x0000000000004a20       0xd4 utils/shell.o
+.iplt           0x0000000000104610        0x0
+ .iplt          0x0000000000104610        0x0 kernel/kernel_entry.o
 
-.data           0x0000000000004b00      0x500
-                0x0000000000004b00                data = .
-                0x0000000000004b00                _data = .
-                0x0000000000004b00                __data = .
- *(.data)
- .data          0x0000000000004b00        0x0 kernel/descriptor_tables.o
- .data          0x0000000000004b00        0x4 kernel/heap.o
-                0x0000000000004b00                next_memory_block
- .data          0x0000000000004b04        0x0 kernel/isr.o
- .data          0x0000000000004b04        0x0 kernel/kernel.o
- .data          0x0000000000004b04        0x0 kernel/process.o
- .data          0x0000000000004b04        0x0 kernel/register.o
- .data          0x0000000000004b04        0x0 kernel/scheduler.o
- .data          0x0000000000004b04        0x0 kernel/virtualmem.o
- .data          0x0000000000004b04        0x0 lib/libc.o
- .data          0x0000000000004b04        0x0 drivers/display.o
- *fill*         0x0000000000004b04       0x1c 
- .data          0x0000000000004b20       0x80 drivers/keyboard.o
-                0x0000000000004b20                kbdus
- .data          0x0000000000004ba0        0x0 utils/shell.o
+.rodata         0x0000000000105000      0x3e8
+                0x0000000000105000                rodata = .
+                0x0000000000105000                _rodata = .
+                0x0000000000105000                __rodata = .
  *(.rodata)
- .rodata        0x0000000000004ba0       0xa2 kernel/virtualmem.o
- *fill*         0x0000000000004c42        0x2 
- .rodata        0x0000000000004c44       0x47 lib/libc.o
- .rodata        0x0000000000004c8b       0x1f drivers/display.o
- *fill*         0x0000000000004caa        0x2 
- .rodata        0x0000000000004cac      0x12b utils/shell.o
-                0x0000000000005000                . = ALIGN (0x1000)
- *fill*         0x0000000000004dd7      0x229 
+ .rodata        0x0000000000105000       0xa2 kernel/virtualmem.o
+ *fill*         0x00000000001050a2        0x2 
+ .rodata        0x00000000001050a4       0x47 lib/libc.o
+ *fill*         0x00000000001050eb        0x1 
+ .rodata        0x00000000001050ec       0x56 drivers/display.o
+ *fill*         0x0000000000105142        0x2 
+ .rodata        0x0000000000105144       0x47 drivers/floppy.o
+                0x0000000000105148                FLPY_SECTORS_PER_TRACK
+                0x000000000010514c                DMA_BUFFER
+ .rodata        0x000000000010518b       0x72 utils/parser.o
+ *fill*         0x00000000001051fd        0x3 
+ .rodata        0x0000000000105200      0x1e8 utils/shell.o
 
-.bss            0x0000000000005000   0x139f40
-                0x0000000000005000                bss = .
-                0x0000000000005000                _bss = .
-                0x0000000000005000                __bss = .
+.__mbHeader     0x00000000001053e8        0x0
+ .__mbHeader    0x00000000001053e8        0x0 kernel/kernel_entry.o
+
+.eh_frame       0x00000000001053e8      0xea8
+ .eh_frame      0x00000000001053e8       0xb8 kernel/descriptor_tables.o
+ .eh_frame      0x00000000001054a0       0x60 kernel/heap.o
+                                         0x78 (size before relaxing)
+ .eh_frame      0x0000000000105500       0x60 kernel/isr.o
+                                         0x78 (size before relaxing)
+ .eh_frame      0x0000000000105560       0xb0 kernel/kernel.o
+                                         0xc8 (size before relaxing)
+ .eh_frame      0x0000000000105610      0x168 kernel/process.o
+                                        0x180 (size before relaxing)
+ .eh_frame      0x0000000000105778       0x60 kernel/scheduler.o
+                                         0x78 (size before relaxing)
+ .eh_frame      0x00000000001057d8      0x214 kernel/virtualmem.o
+                                        0x22c (size before relaxing)
+ .eh_frame      0x00000000001059ec      0x1a0 lib/libc.o
+                                        0x1b8 (size before relaxing)
+ .eh_frame      0x0000000000105b8c      0x224 drivers/display.o
+                                        0x23c (size before relaxing)
+ .eh_frame      0x0000000000105db0      0x360 drivers/floppy.o
+                                        0x378 (size before relaxing)
+ .eh_frame      0x0000000000106110       0x40 drivers/keyboard.o
+                                         0x58 (size before relaxing)
+ .eh_frame      0x0000000000106150       0x84 utils/parser.o
+                                         0x9c (size before relaxing)
+ .eh_frame      0x00000000001061d4       0xbc utils/shell.o
+                                         0xd4 (size before relaxing)
+
+.data           0x0000000000107000      0x2e0
+                0x0000000000107000                data = .
+                0x0000000000107000                _data = .
+                0x0000000000107000                __data = .
+ *(.data)
+ .data          0x0000000000107000        0x0 kernel/descriptor_tables.o
+ .data          0x0000000000107000        0x4 kernel/heap.o
+                0x0000000000107000                next_memory_block
+ .data          0x0000000000107004        0x0 kernel/isr.o
+ .data          0x0000000000107004        0x0 kernel/kernel.o
+ .data          0x0000000000107004        0x0 kernel/process.o
+ .data          0x0000000000107004        0x0 kernel/register.o
+ .data          0x0000000000107004        0x0 kernel/scheduler.o
+ *fill*         0x0000000000107004       0x1c 
+ .data          0x0000000000107020       0xb1 kernel/virtualmem.o
+                0x0000000000107020                forbidden_page_motif
+ *fill*         0x00000000001070d1        0xf 
+ .data          0x00000000001070e0      0x100 lib/libc.o
+                0x00000000001070e0                ascii
+ .data          0x00000000001071e0        0x0 drivers/display.o
+ .data          0x00000000001071e0        0x0 drivers/floppy.o
+ .data          0x00000000001071e0      0x100 drivers/keyboard.o
+                0x00000000001071e0                kbdus
+                0x0000000000107260                kbdus_shift
+ .data          0x00000000001072e0        0x0 utils/parser.o
+ .data          0x00000000001072e0        0x0 utils/shell.o
+
+.igot.plt       0x00000000001072e0        0x0
+ .igot.plt      0x00000000001072e0        0x0 kernel/kernel_entry.o
+
+.bss            0x0000000000108000   0x13917c
+                0x0000000000108000                bss = .
+                0x0000000000108000                _bss = .
+                0x0000000000108000                __bss = .
+ *(COMMON)
+ COMMON         0x0000000000108000      0x866 kernel/descriptor_tables.o
+                0x0000000000108000                idt_ptr
+                0x0000000000108020                gdt_entries
+                0x0000000000108060                idt_entries
+                0x0000000000108860                gdt_ptr
+ *fill*         0x0000000000108866       0x1a 
+ COMMON         0x0000000000108880      0x400 kernel/isr.o
+                0x0000000000108880                interrupt_handlers
+ COMMON         0x0000000000108c80        0x4 kernel/kernel.o
+                0x0000000000108c80                initial_esp
+ *fill*         0x0000000000108c84       0x1c 
+ COMMON         0x0000000000108ca0     0xc3ec kernel/process.o
+                0x0000000000108ca0                process_focus
+                0x0000000000108cc0                processes
+                0x0000000000115074                pad
+                0x000000000011507c                eip_global
+                0x0000000000115080                esp_global
+                0x0000000000115084                current_process
+                0x0000000000115088                ebp_global
+ *fill*         0x000000000011508c       0x14 
+ COMMON         0x00000000001150a0   0x12c020 kernel/virtualmem.o
+                0x00000000001150a0                kernel_page_directory
+                0x00000000001150a4                forbidden_page
+                0x00000000001150a8                nb_frames
+                0x00000000001150ac                frame_bitmap
+                0x00000000001150c0                page_tables
+ COMMON         0x00000000002410c0       0x98 utils/parser.o
+                0x00000000002410c0                nb_tokens
+                0x00000000002410e0                tokens
  *(.bss)
- .bss           0x0000000000005000        0x0 kernel/descriptor_tables.o
- .bss           0x0000000000005000        0x0 kernel/heap.o
- .bss           0x0000000000005000        0x0 kernel/isr.o
- .bss           0x0000000000005000        0x0 kernel/kernel.o
- .bss           0x0000000000005000        0xc kernel/process.o
-                0x0000000000005000                next_pid
-                0x0000000000005004                new_process
-                0x0000000000005008                nb_processes
- .bss           0x000000000000500c        0x0 kernel/register.o
- .bss           0x000000000000500c        0x4 kernel/scheduler.o
-                0x000000000000500c                timer_ticks
- .bss           0x0000000000005010        0x4 kernel/virtualmem.o
-                0x0000000000005010                current_page_directory
- .bss           0x0000000000005014        0x0 lib/libc.o
- .bss           0x0000000000005014        0x0 drivers/display.o
- .bss           0x0000000000005014        0x0 drivers/keyboard.o
- .bss           0x0000000000005014        0x0 utils/shell.o
-                0x0000000000006000                . = ALIGN (0x1000)
- *fill*         0x0000000000005014      0xfec 
- COMMON         0x0000000000006000      0x866 kernel/descriptor_tables.o
-                0x0000000000006000                idt_ptr
-                0x0000000000006020                gdt_entries
-                0x0000000000006060                idt_entries
-                0x0000000000006860                gdt_ptr
- *fill*         0x0000000000006866       0x1a 
- COMMON         0x0000000000006880      0x400 kernel/isr.o
-                0x0000000000006880                interrupt_handlers
- COMMON         0x0000000000006c80        0x4 kernel/kernel.o
-                0x0000000000006c80                initial_esp
- *fill*         0x0000000000006c84       0x1c 
- COMMON         0x0000000000006ca0     0xc26c kernel/process.o
-                0x0000000000006ca0                process_focus
-                0x0000000000006cc0                processes
-                0x0000000000012ef4                pad
-                0x0000000000012efc                eip_global
-                0x0000000000012f00                esp_global
-                0x0000000000012f04                current_process
-                0x0000000000012f08                ebp_global
- *fill*         0x0000000000012f0c       0x14 
- COMMON         0x0000000000012f20   0x12c020 kernel/virtualmem.o
-                0x0000000000012f20                kernel_page_directory
-                0x0000000000012f24                forbidden_page
-                0x0000000000012f28                nb_frames
-                0x0000000000012f2c                frame_bitmap
-                0x0000000000012f40                page_tables
-                0x000000000013ef40                end = .
-                0x000000000013ef40                _end = .
-                0x000000000013ef40                __end = .
-Address of section .text set to 0x1000
+ .bss           0x0000000000241158        0x0 kernel/descriptor_tables.o
+ .bss           0x0000000000241158        0x0 kernel/heap.o
+ .bss           0x0000000000241158        0x0 kernel/isr.o
+ .bss           0x0000000000241158        0x0 kernel/kernel.o
+ .bss           0x0000000000241158        0xc kernel/process.o
+                0x0000000000241158                next_pid
+                0x000000000024115c                new_process
+                0x0000000000241160                nb_processes
+ .bss           0x0000000000241164        0x0 kernel/register.o
+ .bss           0x0000000000241164        0x4 kernel/scheduler.o
+                0x0000000000241164                timer_ticks
+ .bss           0x0000000000241168        0x4 kernel/virtualmem.o
+                0x0000000000241168                current_page_directory
+ .bss           0x000000000024116c        0x0 lib/libc.o
+ .bss           0x000000000024116c        0x0 drivers/display.o
+ .bss           0x000000000024116c        0x5 drivers/floppy.o
+ *fill*         0x0000000000241171        0x3 
+ .bss           0x0000000000241174        0x4 drivers/keyboard.o
+                0x0000000000241174                shift_key_pressed
+ .bss           0x0000000000241178        0x0 utils/parser.o
+ .bss           0x0000000000241178        0x4 utils/shell.o
+                0x0000000000241178                dump_mem_addr
+ *(.bootstrap_stack)
+
+.bootstrap_stack,
+                0x000000000024117c     0x4000
+ .bootstrap_stack,
+                0x000000000024117c     0x4000 kernel/kernel_entry.o
+
+.rel.dyn        0x000000000024517c        0x0
+ .rel.iplt      0x000000000024517c        0x0 kernel/kernel_entry.o
+ .rel.text      0x000000000024517c        0x0 kernel/kernel_entry.o
+ .rel.data      0x000000000024517c        0x0 kernel/kernel_entry.o
+
+.debug_info     0x0000000000246000     0x3ea0
+                0x0000000000246000                debug_info = .
+ *(.debug_info)
+ .debug_info    0x0000000000246000      0x3df kernel/descriptor_tables.o
+ .debug_info    0x00000000002463df      0x116 kernel/heap.o
+ .debug_info    0x00000000002464f5      0x227 kernel/isr.o
+ .debug_info    0x000000000024671c      0x18e kernel/kernel.o
+ .debug_info    0x00000000002468aa      0x72e kernel/process.o
+ .debug_info    0x0000000000246fd8       0x41 kernel/register.o
+ .debug_info    0x0000000000247019      0x1ae kernel/scheduler.o
+ .debug_info    0x00000000002471c7      0x8a0 kernel/virtualmem.o
+ .debug_info    0x0000000000247a67      0x727 lib/libc.o
+ .debug_info    0x000000000024818e      0x6e8 drivers/display.o
+ .debug_info    0x0000000000248876      0x845 drivers/floppy.o
+ .debug_info    0x00000000002490bb      0x49d drivers/keyboard.o
+ .debug_info    0x0000000000249558      0x2eb utils/parser.o
+ .debug_info    0x0000000000249843      0x65d utils/shell.o
+                0x0000000000249ea0                end = .
+                0x0000000000249ea0                _end = .
+                0x0000000000249ea0                __end = .
 LOAD kernel/kernel_entry.o
 LOAD kernel/descriptor_tables.o
 LOAD kernel/heap.o
@@ -280,39 +396,29 @@ LOAD kernel/scheduler.o
 LOAD kernel/virtualmem.o
 LOAD lib/libc.o
 LOAD drivers/display.o
+LOAD drivers/floppy.o
 LOAD drivers/keyboard.o
+LOAD utils/parser.o
 LOAD utils/shell.o
-OUTPUT(kernel.bin binary)
+OUTPUT(kernel.elf elf32-i386)
 
-.debug_info     0x0000000000000000     0x2f64
- .debug_info    0x0000000000000000      0x3df kernel/descriptor_tables.o
- .debug_info    0x00000000000003df      0x116 kernel/heap.o
- .debug_info    0x00000000000004f5      0x227 kernel/isr.o
- .debug_info    0x000000000000071c      0x18e kernel/kernel.o
- .debug_info    0x00000000000008aa      0x6e0 kernel/process.o
- .debug_info    0x0000000000000f8a       0x41 kernel/register.o
- .debug_info    0x0000000000000fcb      0x1ae kernel/scheduler.o
- .debug_info    0x0000000000001179      0x869 kernel/virtualmem.o
- .debug_info    0x00000000000019e2      0x65b lib/libc.o
- .debug_info    0x000000000000203d      0x5fd drivers/display.o
- .debug_info    0x000000000000263a      0x452 drivers/keyboard.o
- .debug_info    0x0000000000002a8c      0x4d8 utils/shell.o
-
-.debug_abbrev   0x0000000000000000      0xfe8
+.debug_abbrev   0x0000000000000000     0x1410
  .debug_abbrev  0x0000000000000000      0x116 kernel/descriptor_tables.o
  .debug_abbrev  0x0000000000000116       0xc1 kernel/heap.o
  .debug_abbrev  0x00000000000001d7      0x10a kernel/isr.o
  .debug_abbrev  0x00000000000002e1       0xe3 kernel/kernel.o
- .debug_abbrev  0x00000000000003c4      0x25e kernel/process.o
- .debug_abbrev  0x0000000000000622       0x39 kernel/register.o
- .debug_abbrev  0x000000000000065b       0xea kernel/scheduler.o
- .debug_abbrev  0x0000000000000745      0x296 kernel/virtualmem.o
- .debug_abbrev  0x00000000000009db      0x1c9 lib/libc.o
- .debug_abbrev  0x0000000000000ba4      0x132 drivers/display.o
- .debug_abbrev  0x0000000000000cd6      0x17a drivers/keyboard.o
- .debug_abbrev  0x0000000000000e50      0x198 utils/shell.o
+ .debug_abbrev  0x00000000000003c4      0x28e kernel/process.o
+ .debug_abbrev  0x0000000000000652       0x39 kernel/register.o
+ .debug_abbrev  0x000000000000068b       0xea kernel/scheduler.o
+ .debug_abbrev  0x0000000000000775      0x29f kernel/virtualmem.o
+ .debug_abbrev  0x0000000000000a14      0x1e3 lib/libc.o
+ .debug_abbrev  0x0000000000000bf7      0x14a drivers/display.o
+ .debug_abbrev  0x0000000000000d41      0x268 drivers/floppy.o
+ .debug_abbrev  0x0000000000000fa9      0x17a drivers/keyboard.o
+ .debug_abbrev  0x0000000000001123      0x110 utils/parser.o
+ .debug_abbrev  0x0000000000001233      0x1dd utils/shell.o
 
-.debug_aranges  0x0000000000000000      0x178
+.debug_aranges  0x0000000000000000      0x1b8
  .debug_aranges
                 0x0000000000000000       0x20 kernel/descriptor_tables.o
  .debug_aranges
@@ -334,48 +440,76 @@ OUTPUT(kernel.bin binary)
  .debug_aranges
                 0x0000000000000118       0x20 drivers/display.o
  .debug_aranges
-                0x0000000000000138       0x20 drivers/keyboard.o
+                0x0000000000000138       0x20 drivers/floppy.o
  .debug_aranges
-                0x0000000000000158       0x20 utils/shell.o
+                0x0000000000000158       0x20 drivers/keyboard.o
+ .debug_aranges
+                0x0000000000000178       0x20 utils/parser.o
+ .debug_aranges
+                0x0000000000000198       0x20 utils/shell.o
 
-.debug_line     0x0000000000000000      0xbd4
+.debug_line     0x0000000000000000     0x119b
  .debug_line    0x0000000000000000      0x108 kernel/descriptor_tables.o
  .debug_line    0x0000000000000108       0x6b kernel/heap.o
  .debug_line    0x0000000000000173       0x67 kernel/isr.o
- .debug_line    0x00000000000001da       0x6c kernel/kernel.o
- .debug_line    0x0000000000000246      0x188 kernel/process.o
- .debug_line    0x00000000000003ce       0x32 kernel/register.o
- .debug_line    0x0000000000000400       0x6a kernel/scheduler.o
- .debug_line    0x000000000000046a      0x237 kernel/virtualmem.o
- .debug_line    0x00000000000006a1      0x166 lib/libc.o
- .debug_line    0x0000000000000807      0x1a0 drivers/display.o
- .debug_line    0x00000000000009a7       0xb4 drivers/keyboard.o
- .debug_line    0x0000000000000a5b      0x179 utils/shell.o
+ .debug_line    0x00000000000001da       0x6d kernel/kernel.o
+ .debug_line    0x0000000000000247      0x18d kernel/process.o
+ .debug_line    0x00000000000003d4       0x32 kernel/register.o
+ .debug_line    0x0000000000000406       0x6a kernel/scheduler.o
+ .debug_line    0x0000000000000470      0x24f kernel/virtualmem.o
+ .debug_line    0x00000000000006bf      0x1a9 lib/libc.o
+ .debug_line    0x0000000000000868      0x1eb drivers/display.o
+ .debug_line    0x0000000000000a53      0x1c7 drivers/floppy.o
+ .debug_line    0x0000000000000c1a       0xd3 drivers/keyboard.o
+ .debug_line    0x0000000000000ced      0x286 utils/parser.o
+ .debug_line    0x0000000000000f73      0x228 utils/shell.o
 
-.debug_str      0x0000000000000000     0x1868
- .debug_str     0x0000000000000000      0x26f kernel/descriptor_tables.o
- .debug_str     0x000000000000026f       0xfd kernel/heap.o
- .debug_str     0x000000000000036c      0x152 kernel/isr.o
- .debug_str     0x00000000000004be      0x10c kernel/kernel.o
- .debug_str     0x00000000000005ca      0x39e kernel/process.o
- .debug_str     0x0000000000000968       0x96 kernel/register.o
- .debug_str     0x00000000000009fe      0x143 kernel/scheduler.o
- .debug_str     0x0000000000000b41      0x3f1 kernel/virtualmem.o
- .debug_str     0x0000000000000f32      0x2bd lib/libc.o
- .debug_str     0x00000000000011ef      0x1c7 drivers/display.o
- .debug_str     0x00000000000013b6      0x260 drivers/keyboard.o
- .debug_str     0x0000000000001616      0x252 utils/shell.o
+.debug_str      0x0000000000000000     0x1214
+ .debug_str     0x0000000000000000      0x255 kernel/descriptor_tables.o
+                                        0x274 (size before relaxing)
+ .debug_str     0x0000000000000255       0x55 kernel/heap.o
+                                        0x102 (size before relaxing)
+ .debug_str     0x00000000000002aa       0x45 kernel/isr.o
+                                        0x157 (size before relaxing)
+ .debug_str     0x00000000000002ef       0x43 kernel/kernel.o
+                                        0x111 (size before relaxing)
+ .debug_str     0x0000000000000332      0x25a kernel/process.o
+                                        0x3a9 (size before relaxing)
+ .debug_str     0x000000000000058c       0x12 kernel/register.o
+                                         0x9b (size before relaxing)
+ .debug_str     0x000000000000059e       0x58 kernel/scheduler.o
+                                        0x148 (size before relaxing)
+ .debug_str     0x00000000000005f6      0x229 kernel/virtualmem.o
+                                        0x40b (size before relaxing)
+ .debug_str     0x000000000000081f       0xbd lib/libc.o
+                                        0x2db (size before relaxing)
+ .debug_str     0x00000000000008dc       0xe5 drivers/display.o
+                                        0x200 (size before relaxing)
+ .debug_str     0x00000000000009c1      0x69d drivers/floppy.o
+                                        0x7b1 (size before relaxing)
+ .debug_str     0x000000000000105e       0x5f drivers/keyboard.o
+                                        0x289 (size before relaxing)
+ .debug_str     0x00000000000010bd       0xd1 utils/parser.o
+                                        0x19f (size before relaxing)
+ .debug_str     0x000000000000118e       0x86 utils/shell.o
+                                        0x2c5 (size before relaxing)
 
-.comment        0x0000000000000000       0xd8
- .comment       0x0000000000000000       0x12 kernel/descriptor_tables.o
- .comment       0x0000000000000012       0x12 kernel/heap.o
- .comment       0x0000000000000024       0x12 kernel/isr.o
- .comment       0x0000000000000036       0x12 kernel/kernel.o
- .comment       0x0000000000000048       0x12 kernel/process.o
- .comment       0x000000000000005a       0x12 kernel/register.o
- .comment       0x000000000000006c       0x12 kernel/scheduler.o
- .comment       0x000000000000007e       0x12 kernel/virtualmem.o
- .comment       0x0000000000000090       0x12 lib/libc.o
- .comment       0x00000000000000a2       0x12 drivers/display.o
- .comment       0x00000000000000b4       0x12 drivers/keyboard.o
- .comment       0x00000000000000c6       0x12 utils/shell.o
+.comment        0x0000000000000000       0x11
+ .comment       0x0000000000000000       0x11 kernel/descriptor_tables.o
+                                         0x12 (size before relaxing)
+ .comment       0x0000000000000011       0x12 kernel/heap.o
+ .comment       0x0000000000000011       0x12 kernel/isr.o
+ .comment       0x0000000000000011       0x12 kernel/kernel.o
+ .comment       0x0000000000000011       0x12 kernel/process.o
+ .comment       0x0000000000000011       0x12 kernel/register.o
+ .comment       0x0000000000000011       0x12 kernel/scheduler.o
+ .comment       0x0000000000000011       0x12 kernel/virtualmem.o
+ .comment       0x0000000000000011       0x12 lib/libc.o
+ .comment       0x0000000000000011       0x12 drivers/display.o
+ .comment       0x0000000000000011       0x12 drivers/floppy.o
+ .comment       0x0000000000000011       0x12 drivers/keyboard.o
+ .comment       0x0000000000000011       0x12 utils/parser.o
+ .comment       0x0000000000000011       0x12 utils/shell.o
+
+.debug_ranges   0x0000000000000000       0x18
+ .debug_ranges  0x0000000000000000       0x18 utils/shell.o

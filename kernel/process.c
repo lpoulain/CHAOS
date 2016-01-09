@@ -350,3 +350,7 @@ int getpid()
 {
     return current_process->pid;
 }
+
+void error(const char *msg) {
+    strcpy(current_process->error, msg);
+}

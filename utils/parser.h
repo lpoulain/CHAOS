@@ -9,12 +9,15 @@
 #define PARSE_MULT		5
 #define PARSE_DIV		6
 #define PARSE_CMD		7
+#define PARSE_PARENTHESE_OPEN	8
+#define PARSE_PARENTHESE_CLOSE	9
 
 typedef struct {
 	uint code;
 	void *value;
+	uint position;
 } token;
 
 uint parse(char *cmd);
-
+int is_math_formula(int start, int end, int *value);
 #endif

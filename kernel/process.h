@@ -22,6 +22,7 @@ typedef struct process_t {
 	uint eip;
 	uint flags;							// Some flags
 	void (*function) ();				// The function to call after initialization
+	char error[128];					// Buffer for errors
 } process;
 
 void init_processes();
@@ -33,5 +34,6 @@ int fork();
 void move_stack(void *new_stack_start, uint size);
 void init_tasking();
 int getpid();
+void error(const char*);
 
 #endif

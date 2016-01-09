@@ -63,7 +63,7 @@ void process_command(display *disp) {
 		puts(disp, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); putcr(disp);
 		puts(disp, "- mem: main memory pointers"); putcr(disp);
 		puts(disp, "- mem [hex address]: memory dump (to test paging)"); putcr(disp);
-		puts(disp, "- [number] [operation] [number]: basic arithmetic operations");
+		puts(disp, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
 		putcr(disp);
 		return;
 	}
@@ -132,36 +132,21 @@ void process_command(display *disp) {
 		return;
 	}
 
-	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_PLUS && tokens[2].code == PARSE_NUMBER) {
-		puts(disp, "=> ");
-		putnb(disp, (uint)tokens[0].value + (uint)tokens[2].value);
+	int value;
+	current_process->error[0] = 0;		// reset error
+	res = is_math_formula(0, nb_tokens, &value);
+	if (res > 0) {
+		putnb(disp, value);
 		putcr(disp);
 		return;
-	}
-
-	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_MINUS && tokens[2].code == PARSE_NUMBER) {
-		puts(disp, "=> ");
-		putnb(disp, (uint)tokens[0].value - (uint)tokens[2].value);
+	} else if (res < 0) {
+		for (int i=0; i<7-res; i++) putc(disp, ' ');
+		putc(disp, '^');
 		putcr(disp);
-		return;
-	}
-
-	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_MULT && tokens[2].code == PARSE_NUMBER) {
-		puts(disp, "=> ");
-		putnb(disp, (uint)tokens[0].value * (uint)tokens[2].value);
-		putcr(disp);
-		return;
-	}
-
-	if (nb_tokens == 3 && tokens[0].code == PARSE_NUMBER && tokens[1].code == PARSE_DIV && tokens[2].code == PARSE_NUMBER) {
-		if ((uint)tokens[2].value == 0) {
-			puts(disp, "Error: division by zero");
+		if (current_process->error[0] != 0) {
+			puts(disp, current_process->error);
 			putcr(disp);
-			return;
 		}
-		puts(disp, "=> ");
-		putnb(disp, (uint)tokens[0].value / (uint)tokens[2].value);
-		putcr(disp);
 		return;
 	}
 
