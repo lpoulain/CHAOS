@@ -6,9 +6,13 @@ So far, here is what it does:
 
 #### Bootloader
 
-- The boot sector reads the kernel from disk (from sector #2) and loads it into memory (at address 0x1000)
-- It switches to the i386 32-bit protected mode
-- It executes the kernel code loaded into memory
+The initial bootloader was initially hand-written. But it started to show its limits beyond a certain point, so I decided to switch to GRUB instead of writing my own 2-stage bootloader. The switch to GRUB allowed the following:
+
+- Load a larger kernel: beyond a certain size, just reading
+- Use a filesystem (instead of storing)
+- Use an ELF binary with symbols. This allows to run commands such as addr2line or objdump for better debugging
+
+The initial bootloader is still in the boot directory, even if it's not used anymore.
 
 #### The kernel
 
