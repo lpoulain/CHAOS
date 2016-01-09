@@ -46,3 +46,4 @@ This project has been possible thanks to the numerous resources available on the
 - [Operating System Development Series](http://www.brokenthorn.com/Resources/OSDevIndex.html)
 - [Bran's Kernel Development Tutorial](http://www.osdever.net/bkerndev/Docs/intro.htm)
 - [JamesM's kernel development tutorials](http://www.jamesmolloy.co.uk/tutorial_html/)
+- And of course [http://wiki.osdev.org/Main_Page](OSDev.org) and the people answering on its forums
