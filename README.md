@@ -8,8 +8,8 @@ So far, here is what it does:
 
 The initial bootloader was initially hand-written. But it started to show its limits beyond a certain point, so I decided to switch to GRUB instead of writing my own 2-stage bootloader. The switch to GRUB allowed the following:
 
-- Load a larger kernel: beyond a certain size, just reading
-- Use a filesystem (instead of storing)
+- Load a larger kernel: beyond a certain size, just reading from the floppy started to get unreliable
+- Use a filesystem (instead of storing the kernel at a precise location on the disk). The current chaos.img is a FAT12 floppy disk image
 - Use an ELF binary with symbols. This allows to run commands such as addr2line or objdump for better debugging
 
 The initial bootloader is still in the boot directory, even if it's not used anymore.
