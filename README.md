@@ -22,7 +22,7 @@ The kernel sets up several things:
 - Heap: a very primitive heap mechanism (i.e. malloc())
 - Interrupts: This is used to capture keystrokes. Note that the keyboard handler is merely storing the keystroke in the process buffer
 - Processes: each process has its own display (i.e. a window on the screen), stack, etc.
-- Paging. This allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" which is filled with 0xFFFFFFFF. Each process has their own virtual memory mapping.
+- Paging. This allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" (which displays a skull under a dump_mem() call). Each process has their own virtual memory mapping.
 - Multitasking: the interrupts are also used to have a scheduler function called at regular intervals. This allows to perform context switches automatically.
 
 #### The processes
@@ -33,7 +33,7 @@ When the processes are waiting for a keyboard input, they are in polling mode, w
 
 #### How to run it
 
-The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see [http://wiki.osdev.org/GCC_Cross-Compiler])
+The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see (http://wiki.osdev.org/GCC_Cross-Compiler) for further info)
 
 The resulting image is chaos.img, which is a floppy disk image. You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by specifying chaos.img as the boot floppy.
 
