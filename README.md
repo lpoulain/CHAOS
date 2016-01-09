@@ -33,7 +33,7 @@ When the processes are waiting for a keyboard input, they are in polling mode, w
 
 #### How to run it
 
-The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see (http://wiki.osdev.org/GCC_Cross-Compiler) for further info)
+The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see http://wiki.osdev.org/GCC_Cross-Compiler)
 
 The resulting image is chaos.img, which is a floppy disk image. You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by specifying chaos.img as the boot floppy.
 
