@@ -138,6 +138,14 @@ void cls(display *disp) {
 	disp->cursor_address = disp->start_address;
 }
 
+void init_screen() {
+	for (char *addr = (char*)VIDEO_ADDRESS; addr<(char*)VIDEO_ADDRESS + 160*50; addr += 2) {
+		*addr = ' ';
+		*(addr+1) = WHITE_ON_BLACK;
+	}
+	print("Welcome to CHAOS (CHeers, Another Operating System) !", 0, 0, WHITE_ON_BLACK);
+}
+
 // Prints a character in hex format, starting with the "0x"
 void print_hex(char b, int row, int col) {
 	char* str = "0x00"; //placeholder for size
@@ -207,6 +215,13 @@ void print_int(int n, int row, int col)
     }
 
     print(str, row, col, YELLOW_ON_BLACK);
+}
+
+void print_c(char c, int row, int col) {
+	unsigned char *video_memory = (unsigned char *)(VIDEO_ADDRESS + row * 160 + col * 2);
+
+	*video_memory++ = c;
+	*video_memory = YELLOW_ON_BLACK;
 }
 
 void init_display(display *disp, int row_start, int row_end, int color) {

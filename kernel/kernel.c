@@ -48,7 +48,7 @@ int main (uint esp) {
 //    debug_i("code: ", (uint)&code);
 //    debug_i("bss:  ", (uint)&bss);
 //    debug_i("end:  ", (uint)&end);
-
+    init_screen();
     init_heap();
     init_processes();
     init_descriptor_tables();

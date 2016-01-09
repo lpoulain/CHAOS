@@ -16,9 +16,11 @@ typedef struct {
 	int buffer_end;
 } display;
 
+void init_screen();
 void print(const char *, int, int, char);
 void print_hex(char b, int row, int col);
 void print_hex2(char b, int row, int col);
+void print_c(char c, int row, int col);
 void puts(display *disp, const char *);
 void putc(display *disp, char);
 void puti(display *disp, uint);

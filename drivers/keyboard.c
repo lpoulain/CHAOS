@@ -30,15 +30,15 @@ unsigned char kbdus[128] =
     0,	/* 69 - Num lock*/
     0,	/* Scroll Lock */
     0,	/* Home key */
-    0,	/* Up Arrow */
+    1,	/* Up Arrow */
     0,	/* Page Up */
   '-',
-    0,	/* Left Arrow */
+    3,	/* Left Arrow */
     0,
-    0,	/* Right Arrow */
+    4,	/* Right Arrow */
   '+',
     0,	/* 79 - End key*/
-    0,	/* Down Arrow */
+    2,	/* Down Arrow */
     0,	/* Page Down */
     0,	/* Insert Key */
     0,	/* Delete Key */
@@ -70,15 +70,15 @@ unsigned char kbdus_shift[128] =
     0,  /* 69 - Num lock*/
     0,  /* Scroll Lock */
     0,  /* Home key */
-    0,  /* Up Arrow */
+    1,  /* Up Arrow */
     0,  /* Page Up */
   '-',
-    0,  /* Left Arrow */
+    3,  /* Left Arrow */
     0,
-    0,  /* Right Arrow */
+    4,  /* Right Arrow */
   '+',
     0,  /* 79 - End key*/
-    0,  /* Down Arrow */
+    2,  /* Down Arrow */
     0,  /* Page Down */
     0,  /* Insert Key */
     0,  /* Delete Key */

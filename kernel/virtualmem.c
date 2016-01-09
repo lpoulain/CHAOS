@@ -164,6 +164,19 @@ page_directory *kernel_page_directory;
 extern uint initial_esp;
 page_table page_tables[300];
 
+char forbidden_page_motif[177] ="\
+    _______     \
+ .-\"       \"-.  \
+/             \\ \
+|  .--. .--.  | \
+| /   | |   \\ | \
+|)\\__/   \\__/(| \
+/     /^\\     \\ \
+\\__   '='   __/ \
+   |       |    \
+   \"VUUUUUV\"    \
+                ";
+
 void init_virtualmem()
 {
     // The size of physical memory. For the moment we 
@@ -179,7 +192,8 @@ void init_virtualmem()
 
     // Initializes the forbidden page
     forbidden_page = (void*)kmalloc_a(4096, 0);
-    memset(forbidden_page, 0xFF, 4096);
+    for (int i=0; i<23; i++) memcpy(forbidden_page + i*176, forbidden_page_motif, 176);
+    memcpy(forbidden_page + 4048, forbidden_page_motif, 48);
 
     // Create the kernel page directory
     kernel_page_directory = (page_directory*)kmalloc_a(sizeof(page_directory), 0);

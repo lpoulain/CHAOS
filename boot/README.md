@@ -1,6 +1,6 @@
 ## Bootloader
 
-This directory contains the elements for the bootloader. The bootloader reads the kernel from the disk, loads it in memory at address 0x1000, switches to 32-bit protected mode and executes that kernel. All this must fit within 512 bytes to fit in the boot sector.
+This directory contains the elements for the initial bootloader. I have since switched to GRUB, but keep these files as a reference. The bootloader reads the kernel from the disk, loads it in memory at address 0x1000, switches to 32-bit protected mode and executes that kernel. All this must fit within 512 bytes to fit in the boot sector.
 
 Here are the files:
 
