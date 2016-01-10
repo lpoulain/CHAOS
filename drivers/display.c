@@ -80,7 +80,11 @@ void puti(display *disp, uint i) {
 }
 
 // Prints a number on the display
-void putnb(display *disp, uint nb) {
+void putnb(display *disp, int nb) {
+	if (nb < 0) {
+		putc(disp, '-');
+		nb = -nb;
+	}
 	uint nb_ref = 1000000000;
 	uint leading_zero = 1;
 	uint digit;
