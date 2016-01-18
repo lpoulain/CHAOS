@@ -9,9 +9,9 @@ So far, here is what it does:
 The initial bootloader was initially hand-written. But it started to show its limits beyond a certain point, so I decided to switch to GRUB Legacy then GRUB 2 instead of writing my own 2-stage bootloader. The switch to GRUB allowed the following:
 
 - Load a larger kernel: beyond a certain size, just reading from the floppy started to get unreliable
-- Use a filesystem (instead of storing the kernel at a precise location on the disk). The current chaos.img is a FAT12 floppy disk image
+- Use a filesystem (instead of storing the kernel at a precise location on the disk). The current chaos.img is a FAT12 hard disk image (formerly floppy disk)
 - Use an ELF binary with symbols. This allows to run commands such as addr2line or objdump for better debugging
-- The switch from GRUB to GRUB 2 allowed to boot in graphic mode (something which is easy in a custom bootloader but harder with GRUB Legacy)
+- The switch from GRUB to GRUB 2 allowed to boot in graphic mode. Doing it with a custom bootloader is easy, but GRUB 2 has a better support than GRUB
 
 The initial bootloader is still in the boot directory, even if it's not used anymore.
 
@@ -19,10 +19,11 @@ The initial bootloader is still in the boot directory, even if it's not used any
 
 The kernel sets up several things:
 
+- It switches to i386 protected mode
 - Heap: a very primitive heap mechanism (i.e. malloc())
-- Interrupts: This is used to capture keystrokes. Note that the keyboard handler is merely storing the keystroke in the process buffer
+- Interrupts: this is used to capture keystrokes. Note that the keyboard handler is merely storing the keystroke in the process buffer
 - Processes: each process has its own display (i.e. a window on the screen), stack, etc.
-- Paging. This allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" (which displays a skull under a dump_mem() call). Each process has their own virtual memory mapping.
+- Paging: this allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" (which displays a skull under a dump_mem() call) instead of crashing. Each process has its own virtual memory mapping.
 - Multitasking: the interrupts are also used to have a scheduler function called at regular intervals. This allows to perform context switches automatically.
 - A PS/2 mouse driver
 - A basic graphical environment: right now it mostly handles the mouse which can be used to select the focus window. The mouse can also be used to drag windows around, but this functionality is not completed yet and barely working
@@ -30,7 +31,9 @@ The kernel sets up several things:
 
 #### The processes
 
-The operating system launches two processes, each one represented by a shell in its own window (type "help to see the available commands"). Those processes are run concurrently and can perform tasks in parallel (this is the purpose of the "countdown" command). Press the Tab key to switch from one shell to the other.
+The operating system launches two processes, each one represented by a shell in its own window (type "help" to see the available commands). Those processes are run concurrently and can perform tasks in parallel (this is the purpose of the "countdown" command). Press the Tab key to switch from one shell to the other.
+
+The up and down arrow keys are used to go through the previous shell commands. The left and right keys are used to move the address for the memory dump viewer ("mem <address>")
 
 When the processes are waiting for a keyboard input, they are in polling mode, which means they are waiting for the keyboard handler to store any keystroke in their buffer. A process in polling mode is not being given cycles by the scheduler.
 
@@ -38,7 +41,7 @@ When the processes are waiting for a keyboard input, they are in polling mode, w
 
 The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see http://wiki.osdev.org/GCC_Cross-Compiler)
 
-The resulting image is chaos.img, which is a hard disk image (formerly a floppy disk image). You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by using vmchaos.vmdk as the disk.
+The resulting image is chaos.img, which is a hard disk image (formerly a floppy disk image). You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by using vm_chaos.vmdk as the disk.
 
 #### Thanks
 
