@@ -8,7 +8,8 @@
 ; Declare constants used for creating a multiboot header.
 MBALIGN     equ  1<<0                   ; align loaded modules on page boundaries
 MEMINFO     equ  1<<1                   ; provide memory map
-FLAGS       equ  MBALIGN | MEMINFO      ; this is the Multiboot 'flag' field
+VIDINFO     equ 1<<2
+FLAGS       equ  MBALIGN | MEMINFO | VIDINFO      ; this is the Multiboot 'flag' field
 MAGIC       equ  0x1BADB002             ; 'magic number' lets bootloader find the header
 CHECKSUM    equ -(MAGIC + FLAGS)        ; checksum of above, to prove we are multiboot
  
@@ -22,6 +23,9 @@ align 4
     dd MAGIC
     dd FLAGS
     dd CHECKSUM
+    dd 0, 0, 0, 0, 0
+    dd 0
+    dd 640, 480, 4
  
 ; Currently the stack pointer register (esp) points at anything and using it may
 ; cause massive harm. Instead, we'll provide our own stack. We will allocate
@@ -63,6 +67,7 @@ _start:
     ; such as floating point instructions are not available yet.
  
     push esp        ; We push the stack pointer, so we know the beginning of the stack
+
     call main
     jmp $
  

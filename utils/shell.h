@@ -4,7 +4,7 @@
 #include "display.h"
 
 void shell();
-void start_shell(display *);
+void start_shell(window *);
 void callback(unsigned char c);
 
 #endif

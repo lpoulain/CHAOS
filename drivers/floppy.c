@@ -1,4 +1,5 @@
 #include "libc.h"
+#include "heap.h"
 #include "kernel.h"
 #include "isr.h"
 #include "display.h"
@@ -24,7 +25,7 @@ static volatile uint FloppyIRQFlag = 0;
 static void floppy_IRQ_handler(registers_t regs) {
 	asm __volatile__ ("cli");
 	FloppyIRQFlag = 1;
-	debug_i("Ha", 0);
+	debug_i("Ha ", 0);
 	asm __volatile__ ("sti");
 }
 
@@ -140,7 +141,8 @@ const int FLPY_SECTORS_PER_TRACK = 18;
 
 //! dma tranfer buffer starts here and ends at 0x1000+64k
 //! You can change this as needed. It must be below 16MB and in idenitity mapped memory!
-const int DMA_BUFFER = 0x1000;
+void *dma_buffer;
+//const int DMA_BUFFER = (int)dma_buffer;
 
 //============================================================================
 //    IMPLEMENTATION PRIVATE CLASS PROTOTYPES / EXTERNAL CLASS REFERENCES
@@ -181,7 +183,7 @@ void flpydsk_initialize_dma () {
 
 	outportb (0x0a,0x06);	//mask dma channel 2
 	outportb (0xd8,0xff);	//reset master flip-flop
-	outportb (0x04, 0);     //address=0x1000 
+	outportb ((uint)dma_buffer / 0x400, 0);     //address=0x1000 
 	outportb (0x04, 0x10);
 	outportb (0xd8, 0xff);  //reset master flip-flop
 	outportb (0x05, 0xff);  //count to 0x23ff (number of bytes in a 3.5" floppy disk track)
@@ -318,8 +320,9 @@ void flpydsk_control_motor (uint b) {
 		flpydsk_write_dor (FLPYDSK_DOR_MASK_RESET);
 
 	//! in all cases; wait a little bit for the motor to spin up/turn off
-//	sleep (20);
-//	for (int i=0; i<1000000; i++);
+
+	for (int i = 0; i < 500; i++ )
+		if ( flpydsk_read_status () & FLPYDSK_MSR_MASK_DATAREG ) return;
 }
 
 //! configure drive
@@ -522,7 +525,8 @@ u8int* flpydsk_read_sector (int sectorLBA) {
 	flpydsk_control_motor (0);
 
 	//! warning: this is a bit hackish
-	return (u8int*) DMA_BUFFER;
+//	return (u8int*) DMA_BUFFER;
+	return (u8int*) dma_buffer;
 }
 
 
@@ -543,20 +547,25 @@ void init_floppy() {
 
 void floppy_test_read() {
     debug_i("Reading floppy ", 0);
+    dma_buffer = (void*)kmalloc_a(65536, 0);
+    memset(dma_buffer, 0xFF, 65536);
+    FloppyIRQFlag = 0;
 
     init_floppy();
 
-    uint sectornum = 10;
+    uint sectornum = 0;
     char sectornumbuf [4];
     u8int* sector = 0;
  
     //! read sector from disk
     sector = flpydsk_read_sector ( sectornum );
     debug_i("Done " , (uint)sector);
+    debug_i("DMA buffer: ", (uint)dma_buffer);
+//    sector = 0x1000;
 
 //    debug_i("Contents of sector ", sectornum);
 
-    dump_mem(sector, 512, 12);
+    dump_mem(sector, 176, 13);
  
     //! display sector
     if (sector!=0) {

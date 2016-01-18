@@ -3,31 +3,34 @@
 #include "process.h"
 #include "parser.h"
 #include "floppy.h"
+#include "vga.h"
+#include "gui_mouse.h"
 
 extern process *current_process;
 extern process *process_focus;
 extern void stack_dump();
+extern void read_sectors();
 
 typedef struct {
 	char entry[100][BUFFER_SIZE];
 	uint entry_idx;
 } cmd_hist;
 
-void prompt(display *disp) {
-	puts(disp, "CHAOS> ");
+void prompt(window *win) {
+	win->action->puts(win, "CHAOS> ");
 }
 
-void countdown(display *disp) {
+void countdown(window *win) {
 	int counter = 10;
-	char *nb = "987654321";
+	char *nb = "9876543210";
 	for (int k=0; k<10; k++) {
-		for (int i=0; i<1000; i++) {
+		for (int i=0; i<10000; i++) {
 			for (int j=0; j<10000; j++) {
 			}
 		}
-		putc(disp, nb[k]);
+		win->action->putc(win, nb[k]);
 	}
-	putcr(disp);
+	win->action->putcr(win);
 }
 
 extern token tokens[10];
@@ -41,47 +44,47 @@ extern uint debug_info;
 extern uint end;
 uint dump_mem_addr = 0;
 
-void process_command(display *disp) {
+void process_command(window *win) {
 
 	// Clear screen
-	if (!strcmp(disp->buffer, "cls")) {
-		cls(disp);
+	if (!strcmp(win->buffer, "cls")) {
+		win->action->cls(win);
 		return;
 	}
 
 	// Read from the disk (work in progress)
-	if (!strcmp(disp->buffer, "f")) {
+	if (!strcmp(win->buffer, "f")) {
 		floppy_test_read();
 		return;
 	}
 
-	if (!strcmp(disp->buffer, "help")) {
-		puts(disp, "Commands:"); putcr(disp);
-		puts(disp, "- cls: clear screen"); putcr(disp);
-		puts(disp, "- help: this help"); putcr(disp);
-		puts(disp, "- stack: prints the stack trace"); putcr(disp);
-		puts(disp, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); putcr(disp);
-		puts(disp, "- mem: main memory pointers"); putcr(disp);
-		puts(disp, "- mem [hex address]: memory dump (to test paging)"); putcr(disp);
-		puts(disp, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
-		putcr(disp);
+	if (!strcmp(win->buffer, "help")) {
+		win->action->puts(win, "Commands:"); win->action->putcr(win);
+		win->action->puts(win, "- cls: clear screen"); win->action->putcr(win);
+		win->action->puts(win, "- help: this help"); win->action->putcr(win);
+		win->action->puts(win, "- stack: prints the stack trace"); win->action->putcr(win);
+		win->action->puts(win, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); win->action->putcr(win);
+		win->action->puts(win, "- mem: main memory pointers"); win->action->putcr(win);
+		win->action->puts(win, "- mem [hex address]: memory dump (to test paging)"); win->action->putcr(win);
+		win->action->puts(win, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
+		win->action->putcr(win);
 		return;
 	}
 
 	// Run a countdown
-	if (!strcmp(disp->buffer, "countdown")) {
-		countdown(disp);
+	if (!strcmp(win->buffer, "countdown")) {
+		countdown(win);
 		return;
 	}
 
 	// Display the current stack trace
-	if (!strcmp(disp->buffer, "stack")) {
+	if (!strcmp(win->buffer, "stack")) {
 		stack_dump();
 		return;
 	}
 
 	// Prints the main memory pointers
-	if (!strcmp(disp->buffer, "mem")) {
+	if (!strcmp(win->buffer, "mem")) {
 	    debug_i("code:       ", (uint)&code);
 	    debug_i("r/o data:   ", (uint)&rodata);
 	    debug_i("data:       ", (uint)&data);
@@ -92,24 +95,24 @@ void process_command(display *disp) {
 	}
 
 	// Memory dump
-	if (!strncmp(disp->buffer, "mem ", 4)) {
+	if (!strncmp(win->buffer, "mem ", 4)) {
 		uint bufferpos = 4;
-		if (!strncmp(disp->buffer + 4, "0x", 2)) bufferpos += 2;
+		if (!strncmp(win->buffer + 4, "0x", 2)) bufferpos += 2;
 
 		uint val = 268435456;
 		uint address = 0;
 		char c;
 
 		for (int i=bufferpos; i<bufferpos+8; i++) {
-			c = disp->buffer[i];
+			c = win->buffer[i];
 			if (c == 0) break;
 			if (c >= 'A' && c <= 'F') c += 32;
 			if (c >= 'a' && c <= 'f') address += val * (10 + (c - 'a'));
 			else if (c >= '0' && c <= '9') address += val * (c - '0');
 			else {
-				puts(disp, "Invalid character in address: ");
-				putc(disp, c);
-				putcr(disp);
+				win->action->puts(win, "Invalid character in address: ");
+				win->action->putc(win, c);
+				win->action->putcr(win);
 				return;
 			}
 
@@ -117,18 +120,41 @@ void process_command(display *disp) {
 		}
 
 		dump_mem_addr = (uint)address;
-		dump_mem((void*)address, 160, 13);
+		dump_mem((void*)address, 160, 48);
 		return;
 	}
 
 	// Parsing arithmetic operations
-	int res = parse(disp->buffer);
+	int res = parse(win->buffer);
 	if (res <= 0) {
-		for (int i=0; i<7-res; i++) putc(disp, ' ');
-		putc(disp, '^');
-		putcr(disp);
-		puts(disp, "Syntax error");
-		putcr(disp);
+		for (int i=0; i<7-res; i++) putc(win, ' ');
+		win->action->putc(win, '^');
+		win->action->putcr(win);
+		win->action->puts(win, "Syntax error");
+		win->action->putcr(win);
+		return;
+	}
+
+	// Draw box
+	if (nb_tokens == 5 &&
+		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "box") &&
+		tokens[1].code == PARSE_NUMBER && tokens[2].code == PARSE_NUMBER && tokens[3].code == PARSE_NUMBER && tokens[4].code == PARSE_NUMBER) {
+
+		draw_box((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
+
+		win->action->putcr(win);
+		return;
+	}
+
+	// Draw frame
+	if (nb_tokens == 5 &&
+		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "frame") &&
+		tokens[1].code == PARSE_NUMBER && tokens[2].code == PARSE_NUMBER && tokens[3].code == PARSE_NUMBER && tokens[4].code == PARSE_NUMBER) {
+
+		draw_background((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
+		draw_frame((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
+
+		win->action->putcr(win);
 		return;
 	}
 
@@ -136,27 +162,27 @@ void process_command(display *disp) {
 	current_process->error[0] = 0;		// reset error
 	res = is_math_formula(0, nb_tokens, &value);
 	if (res > 0) {
-		putnb(disp, value);
-		putcr(disp);
+		win->action->putnb(win, value);
+		win->action->putcr(win);
 		return;
 	} else if (res < 0) {
-		for (int i=0; i<7-res; i++) putc(disp, ' ');
-		putc(disp, '^');
-		putcr(disp);
+		for (int i=0; i<7-res; i++) win->action->putc(win, ' ');
+		win->action->putc(win, '^');
+		win->action->putcr(win);
 		if (current_process->error[0] != 0) {
-			puts(disp, current_process->error);
-			putcr(disp);
+			win->action->puts(win, current_process->error);
+			win->action->putcr(win);
 		}
 		return;
 	}
 
 	// If everything else fails
-	puts(disp, "Invalid command");
-	putcr(disp);
+	win->action->puts(win, "Invalid command");
+	win->action->putcr(win);
 }
 
 void process_char(unsigned char c, cmd_hist *commands) {
-	display *disp = &get_process_focus()->disp;
+	window *win = &get_process_focus()->win;
 
 	// If no keyboard key is captured do nothing
 	if (c == 0) return;
@@ -168,13 +194,13 @@ void process_char(unsigned char c, cmd_hist *commands) {
 		if (idx < 0) idx = 99;
 		if (idx >= 100) idx = 0;
 
-		if (commands->entry[idx][0] == 0 && disp->buffer_end == 0) return;
+		if (commands->entry[idx][0] == 0 && win->buffer_end == 0) return;
 
-		for (int i=0; i<disp->buffer_end; i++) backspace(disp);
-		strcpy(disp->buffer, commands->entry[idx]);
-		disp->buffer_end = strlen(disp->buffer);
-		puts(disp, disp->buffer);
-		set_cursor(disp);
+		for (int i=0; i<win->buffer_end; i++) win->action->backspace(win);
+		strcpy(win->buffer, commands->entry[idx]);
+		win->buffer_end = strlen(win->buffer);
+		win->action->puts(win, win->buffer);
+		win->action->set_cursor(win);
 		commands->entry_idx = idx;
 		return;
 	}
@@ -183,50 +209,50 @@ void process_char(unsigned char c, cmd_hist *commands) {
 	if (c == 3 || c == 4) {
 		dump_mem_addr += ((c - 3) * 2 - 1) * 176;
 		if (dump_mem_addr < 0) dump_mem_addr = 0;
-		dump_mem((void*)dump_mem_addr, 160, 13);
+		dump_mem((void*)dump_mem_addr, 160, 48);
 		return;
 	}
 
 	// The user pressed Enter. Processing the command buffer
 	if (c == '\n') {
-		disp->buffer[disp->buffer_end] = 0;
-		putcr(disp);
-		if (disp->buffer_end != 0) {
+		win->buffer[win->buffer_end] = 0;
+		win->action->putcr(win);
+		if (win->buffer_end != 0) {
 	
 			uint idx = commands->entry_idx;
-			strcpy(commands->entry[idx], disp->buffer);
+			strcpy(commands->entry[idx], win->buffer);
 			idx++;
 			if (idx >= 100) idx = 0;
 			commands->entry_idx = idx;
 
-			process_command(disp);
+			process_command(win);
 		}
-		prompt(disp);
-		set_cursor(disp);
-		disp->buffer_end = 0;
+		prompt(win);
+		win->action->set_cursor(win);
+		win->buffer_end = 0;
 		return;
 	}
 
 	// The user pressed backspace
 	if (c == '\b') {
-		if (disp->buffer_end == 0) return;
-		backspace(disp);
-		set_cursor(disp);
-		disp->buffer[disp->buffer_end--] = 0;
+		if (win->buffer_end == 0) return;
+		win->action->backspace(win);
+		win->action->set_cursor(win);
+		win->buffer[win->buffer_end--] = 0;
 		return;
 	}
 
 	// If the command buffer is full, stop
-	if (disp->buffer_end >= BUFFER_SIZE - 1) return;
+	if (win->buffer_end >= BUFFER_SIZE - 1) return;
 
 	// Otherwise fill the buffer
-	disp->buffer[disp->buffer_end++] = c;
+	win->buffer[win->buffer_end++] = c;
 
 	// And print the character on the screen
-	putc(disp, c);
-	set_cursor(disp);
+	win->action->putc(win, c);
+	win->action->set_cursor(win);
 
-	print_hex(c, 0, 75);
+//	print_hex(c, 0, 75);
 }
 
 extern int new_process;
@@ -250,20 +276,20 @@ unsigned char poll() {
 }
 
 void shell() {
-	display *disp = &(current_process->disp);
+	window *win = &(current_process->win);
+	win->action->init(win, "Shell");
 
 	cmd_hist commands;
 	memset(&commands, 0, sizeof(cmd_hist));
 
-	prompt(disp);
-	if (process_focus == current_process) set_cursor(disp);
-	disp->buffer_end = 0;
-
-//	countdown(disp);
-//	prompt(disp);
+	prompt(win);
+	if (process_focus == current_process) win->action->set_cursor(win);
+	win->buffer_end = 0;
 
 	for (;;) {
 		unsigned char c = poll();
+		gui_mouse_hide();
 		process_char(c, &commands);
+		gui_mouse_show();
 	}
 }

@@ -9,6 +9,7 @@
 #include "shell.h"
 #include "process.h"
 #include "descriptor_tables.h"
+#include "vga.h"
 
 unsigned char inportb (unsigned short _port)
 {
@@ -39,6 +40,7 @@ extern uint code;
 extern uint bss;
 extern uint end;
 extern void init_scheduler();
+extern void init_mouse();
 
 int main (uint esp) {
     // We save the first ESP pointer to have an idea of the
@@ -56,6 +58,8 @@ int main (uint esp) {
     init_virtualmem();
     init_tasking();
     init_scheduler();
+    init_vga();
+    init_mouse();
 
     // Launch a new process
     int ret = fork();

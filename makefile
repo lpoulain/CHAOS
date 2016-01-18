@@ -1,8 +1,8 @@
 SDIR = kernel lib drivers utils
-C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c)
-HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h)
+C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c)
+HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h)
 OBJ = ${C_SOURCES:.c=.o}
-INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils
+INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui
 
 All: chaos.img
 

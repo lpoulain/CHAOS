@@ -5,6 +5,7 @@
 #include "libc.h"
 #include "process.h"
 #include "display.h"
+#include "vga.h"
 
 extern process *current_process;
 
@@ -81,13 +82,13 @@ int atoi(char *str)
 extern process processes[3];
 
 void debug_i(char *msg, uint nb) {
-    puts(&current_process->disp, msg);
-    puti(&current_process->disp, nb);
-    putcr(&current_process->disp);
+    current_process->win.action->puts(&current_process->win, msg);
+    current_process->win.action->puti(&current_process->win, nb);
+    current_process->win.action->putcr(&current_process->win);
 }
 
 void debug(char *msg) {
-    puts(&current_process->disp, msg);
+    current_process->win.action->puts(&current_process->win, msg);
 }
 
 // Prints the stack trace. This is called by stack_dump() defined in
@@ -134,6 +135,7 @@ char ascii[256] = {
     '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'
 };
 
+/*
 void dump_mem(void *ptr, int nb_bytes, int row) {
     unsigned char *addr = (unsigned char *)ptr;
 
@@ -154,6 +156,31 @@ void dump_mem(void *ptr, int nb_bytes, int row) {
         for (i=0; i<16; i++) {
             print_hex2(*addr, row, 12 + i*3);
             print_c(ascii[*addr++], row, 61 + i);
+        }
+    }
+}
+*/
+void dump_mem(void *ptr, int nb_bytes, int row) {
+    unsigned char *addr = (unsigned char *)ptr;
+
+    int offset = (uint)addr % 16;
+    int i, j;
+
+    draw_ptr(addr - offset, 0, row*8);
+
+    draw_string("                                                  ", 10*8, row*8);
+    for (i=0; i< 16-offset; i++) {
+        draw_hex2(*addr, (offset * 3 + 12 + i*3)*8, row*8);
+        draw_font(ascii[*addr++], (61 + i)*8, row*8);
+    }
+
+    int nb_rows = (nb_bytes - 16 + offset) / 16 + 1;
+    for (j=0; j<nb_rows; j++) {
+        draw_ptr(addr - 0, 0, (++row)*8);
+        draw_string("                                                  ", 10*8, row*8);
+        for (i=0; i<16; i++) {
+            draw_hex2(*addr, (12 + i*3)*8, row*8);
+            draw_font(ascii[*addr++], (61 + i)*8, row*8);
         }
     }
 }

@@ -12,7 +12,7 @@
 typedef struct process_t {
 	uint pid;							// The process ID
 	unsigned char buffer;				// A buffer (where the keyboard handler)
-	display disp;						// The display (i.e. window) assigned
+	window win;							// The window used by the process
 	page_directory *page_dir;			// The page directory
 	struct process_t *next;				// The next process
 	char stack[PROCESS_STACK_SIZE];		// The stack

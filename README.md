@@ -6,11 +6,12 @@ So far, here is what it does:
 
 #### Bootloader
 
-The initial bootloader was initially hand-written. But it started to show its limits beyond a certain point, so I decided to switch to GRUB instead of writing my own 2-stage bootloader. The switch to GRUB allowed the following:
+The initial bootloader was initially hand-written. But it started to show its limits beyond a certain point, so I decided to switch to GRUB Legacy then GRUB 2 instead of writing my own 2-stage bootloader. The switch to GRUB allowed the following:
 
 - Load a larger kernel: beyond a certain size, just reading from the floppy started to get unreliable
 - Use a filesystem (instead of storing the kernel at a precise location on the disk). The current chaos.img is a FAT12 floppy disk image
 - Use an ELF binary with symbols. This allows to run commands such as addr2line or objdump for better debugging
+- The switch from GRUB to GRUB 2 allowed to boot in graphic mode (something which is easy in a custom bootloader but harder with GRUB Legacy)
 
 The initial bootloader is still in the boot directory, even if it's not used anymore.
 
@@ -18,12 +19,14 @@ The initial bootloader is still in the boot directory, even if it's not used any
 
 The kernel sets up several things:
 
-- A "device driver" to handle displaying on the screen
 - Heap: a very primitive heap mechanism (i.e. malloc())
 - Interrupts: This is used to capture keystrokes. Note that the keyboard handler is merely storing the keystroke in the process buffer
 - Processes: each process has its own display (i.e. a window on the screen), stack, etc.
 - Paging. This allows to map the virtual memory to the physical memory as the operating system sees fits. Right now, trying to access an unmapped page results in a page fault, resulting in the OS mapping that virtual page to a "forbidden page" (which displays a skull under a dump_mem() call). Each process has their own virtual memory mapping.
 - Multitasking: the interrupts are also used to have a scheduler function called at regular intervals. This allows to perform context switches automatically.
+- A PS/2 mouse driver
+- A basic graphical environment: right now it mostly handles the mouse which can be used to select the focus window. The mouse can also be used to drag windows around, but this functionality is not completed yet and barely working
+- The OS still has the code that handles the standard 80x25 text mode (basic "window", mouse support). Because switching from video to text mode (and vice versa) is complex in protected mode, the text mode is currently dormant. A future version of CHAOS will have two versions of the kernel (one in graphic mode, one in text mode) that can be chosen at boot time
 
 #### The processes
 
@@ -35,7 +38,7 @@ When the processes are waiting for a keyboard input, they are in polling mode, w
 
 The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see http://wiki.osdev.org/GCC_Cross-Compiler)
 
-The resulting image is chaos.img, which is a floppy disk image. You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by specifying chaos.img as the boot floppy.
+The resulting image is chaos.img, which is a hard disk image (formerly a floppy disk image). You can run it using the x86 emulator [bochs](http://bochs.sourceforge.net/) (once installed just type 'bochs', the bochrc file from the project points it to the right image) or on VirtualBox by using vmchaos.vmdk as the disk.
 
 #### Thanks
 

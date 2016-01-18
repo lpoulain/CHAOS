@@ -5,6 +5,9 @@
 #include "isr.h"
 #include "process.h"
 #include "virtualmem.h"
+#include "vga.h"
+#include "gui_window.h"
+#include "gui_mouse.h"
 
 uint next_pid = 0;
 extern page_directory *current_page_directory;
@@ -33,8 +36,8 @@ uint nb_processes = 0;
 void init_processes() {
 	processes[0].pid = 0;
 	processes[1].pid = 1;
-	init_display(&processes[0].disp, 1, 12, 0x0e);
-	init_display(&processes[1].disp, 13, 24, 0x0f);
+  processes[0].win = win1;
+  processes[1].win = win2;
 	processes[0].next = &processes[0];
 	processes[1].next = &processes[0];
 
@@ -284,8 +287,11 @@ void switch_process()
 
 // Changes the process which has the focus
 void switch_process_focus() {
+    gui_mouse_hide();
+    process_focus->win.action->remove_focus(&process_focus->win);
     process_focus = process_focus->next;
-    set_cursor(&process_focus->disp);
+    process_focus->win.action->set_focus(&process_focus->win);
+    gui_mouse_show();
 }
 
 // Spawn a new process
