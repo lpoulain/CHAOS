@@ -9,7 +9,6 @@
 #include "shell.h"
 #include "process.h"
 #include "descriptor_tables.h"
-#include "vga.h"
 
 unsigned char inportb (unsigned short _port)
 {
@@ -35,12 +34,22 @@ u8int inb(u16int port)
     return ret;
 }
 
+void reboot()
+{
+    u8int good = 0x02;
+    while (good & 0x02)
+        good = inb(0x64);
+    outb(0x64, 0xFE);
+}
+
 uint initial_esp;
 extern uint code;
 extern uint bss;
 extern uint end;
 extern void init_scheduler();
 extern void init_mouse();
+extern void init_display();
+extern uint boot_flags();
 
 int main (uint esp) {
     // We save the first ESP pointer to have an idea of the
@@ -50,16 +59,15 @@ int main (uint esp) {
 //    debug_i("code: ", (uint)&code);
 //    debug_i("bss:  ", (uint)&bss);
 //    debug_i("end:  ", (uint)&end);
-    init_screen();
     init_heap();
+    init_display(boot_flags());
     init_processes();
     init_descriptor_tables();
+    init_mouse();
     init_keyboard();
     init_virtualmem();
     init_tasking();
     init_scheduler();
-    init_vga();
-    init_mouse();
 
     // Launch a new process
     int ret = fork();

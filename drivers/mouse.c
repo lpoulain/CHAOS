@@ -2,10 +2,15 @@
 #include "kernel.h"
 #include "isr.h"
 #include "display.h"
-#include "vga.h"
+#include "display_vga.h"
+#include "display_text.h"
 #include "gui_mouse.h"
 
 void mouse_wait(u8int a_type);
+
+extern void (*mouse_move)(int delta_x, int delta_y, uint);
+extern void (*mouse_click)();
+extern void (*mouse_unclick)();
 
 #define MOUSE_IRQ 12
 
@@ -19,6 +24,10 @@ void mouse_wait(u8int a_type);
 
 static u8int mouse_cycle = 0;
 static u8int  mouse_byte[3];
+
+/*
+static u8int mouse_cycle = 0;
+static u8int  mouse_byte[3];
 static uint mouse_status;
 static u8int cursor_buffer = ' ';
 static u8int cursor_color_buffer = 0;
@@ -26,8 +35,8 @@ static u8int cursor_color_buffer = 0;
 static int mouse_x = 40;
 static int mouse_y = 12;
 
-static void move(int delta_x, int delta_y) {
-   print_c(cursor_buffer, mouse_y, mouse_x);
+void text_mouse_move(int delta_x, int delta_y) {
+   text_print_c(cursor_buffer, mouse_y, mouse_x);
    delta_x /= 2;
    delta_y /= 2;
    
@@ -40,9 +49,10 @@ static void move(int delta_x, int delta_y) {
    if (mouse_y < 0) mouse_y = 0;
    if (mouse_y >= 25) mouse_y = 24;
 
-   print_c('X', mouse_y, mouse_x);
+   text_print_c('X', mouse_y, mouse_x);
    cursor_buffer = ' ';
 }
+*/
 
 uint mouse_button_down = 0;
 
@@ -62,11 +72,11 @@ static void mouse_handler(registers_t regs) {
                mouse_byte[0] = mouse_in;
 //               draw_hex(mouse_byte[0], 0, 0);
                if (mouse_in & 0x1) {
-                  if (!mouse_button_down) gui_mouse_click();
+                  if (!mouse_button_down) mouse_click();
                   mouse_button_down = 1;
                }
                else {
-                  if (mouse_button_down) gui_mouse_unclick();
+                  if (mouse_button_down) mouse_unclick();
                   mouse_button_down = 0;
                }
 //               print_hex(mouse_in, 0, 60);
@@ -87,7 +97,7 @@ static void mouse_handler(registers_t regs) {
                if (mouse_byte[0] & 0x20) y_dir |= 0xFFFFFF00;
                y_dir = -y_dir;
                /* We now have a full mouse packet ready to use */
-               gui_mouse_move(x_dir, y_dir, mouse_button_down);
+               mouse_move(x_dir, y_dir, mouse_button_down);
 
                if (mouse_byte[0] & 0x80 || mouse_byte[0] & 0x40) 
                {

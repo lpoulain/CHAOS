@@ -5,9 +5,8 @@
 #include "libc.h"
 #include "process.h"
 #include "display.h"
-#include "vga.h"
-
-extern process *current_process;
+#include "display_vga.h"
+#include "display_text.h"
 
 char *strcpy(char *dest, const char *src) {
     char *save = dest;
@@ -31,6 +30,14 @@ int strlen(const char *s) {
     const char *p = s;
     while (*s) ++s;
     return s - p;
+}
+
+int strnlen (const char *s, uint maxlen) {
+  const char *e = s;
+  uint n;
+
+  for (n = 0; *e && n++ < maxlen; e++);
+  return n;
 }
 
 int strncmp(const char *s1, const char *s2, uint n)
@@ -58,6 +65,14 @@ void memset(void *dest, u8int val, uint len)
     for ( ; len != 0; len--) *temp++ = val;
 }
 
+void lmemcpy(uint *dest, const uint *src, uint len) {
+    for (; len != 0; len--) *dest++ = *src++;
+}
+
+void lmemset(uint *dest, uint val, uint len) {
+    for (; len != 0; len--) *dest++ = val;
+}
+
 void getch() {
     current_process->buffer = 0;
     while (!current_process->buffer);
@@ -76,19 +91,48 @@ int atoi(char *str)
     return res;
 }
 
+uint umin(uint nb1, uint nb2) {
+    if (nb1 <= nb2) return nb1;
+    return nb2;
+}
+
+uint umax(uint nb1, uint nb2) {
+    if (nb1 >= nb2) return nb1;
+    return nb2;
+}
+
+int min(int nb1, int nb2) {
+    if (nb1 <= nb2) return nb1;
+    return nb2;
+}
+
+int max(int nb1, int nb2) {
+    if (nb1 >= nb2) return nb1;
+    return nb2;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 // Debug functions
 ///////////////////////////////////////////////////////////////////////////////////
 extern process processes[3];
 
+uint debug_pos = 0;
+
 void debug_i(char *msg, uint nb) {
-    current_process->win.action->puts(&current_process->win, msg);
-    current_process->win.action->puti(&current_process->win, nb);
-    current_process->win.action->putcr(&current_process->win);
+//    current_process->win->action->puts(current_process->win, msg);
+//    current_process->win->action->puti(current_process->win, nb);
+//    current_process->win->action->putcr(current_process->win);
+    draw_string(msg, 0, debug_pos);
+    draw_ptr((void*)nb, strlen(msg)*8, debug_pos);
+    debug_pos += 8;
+    if (debug_pos >= 480) debug_pos = 0;
 }
 
 void debug(char *msg) {
-    current_process->win.action->puts(&current_process->win, msg);
+//    current_process->win->action->puts(current_process->win, msg);
+    draw_string(msg, 0, debug_pos);
+    debug_pos += 8;
+    if (debug_pos >= 480) debug_pos = 0;
 }
 
 // Prints the stack trace. This is called by stack_dump() defined in
@@ -135,32 +179,33 @@ char ascii[256] = {
     '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.', '.'
 };
 
-/*
-void dump_mem(void *ptr, int nb_bytes, int row) {
+
+void text_dump_mem(void *ptr, int nb_bytes, int row) {
+    row = 14;
     unsigned char *addr = (unsigned char *)ptr;
 
     int offset = (uint)addr % 16;
     int i, j;
 
-    print_ptr(addr - offset, row, 0);
-    print("                                                  ", row, 10, YELLOW_ON_BLACK);
+    text_print_ptr(addr - offset, row, 0);
+    text_print("                                                  ", row, 10, YELLOW_ON_BLACK);
     for (i=0; i< 16-offset; i++) {
-        print_hex2(*addr, row, offset * 3 + 12 + i*3);
-        print_c(ascii[*addr++], row, 61 + i);
+        text_print_hex2(*addr, row, offset * 3 + 12 + i*3);
+        text_print_c(ascii[*addr++], row, 61 + i);
     }
 
     int nb_rows = (nb_bytes - 16 + offset) / 16 + 1;
     for (j=0; j<nb_rows; j++) {
-        print_ptr(addr - 0, ++row, 0);
-        print("                                                  ", row, 10, YELLOW_ON_BLACK);
+        text_print_ptr(addr - 0, ++row, 0);
+        text_print("                                                  ", row, 10, YELLOW_ON_BLACK);
         for (i=0; i<16; i++) {
-            print_hex2(*addr, row, 12 + i*3);
-            print_c(ascii[*addr++], row, 61 + i);
+            text_print_hex2(*addr, row, 12 + i*3);
+            text_print_c(ascii[*addr++], row, 61 + i);
         }
     }
 }
-*/
-void dump_mem(void *ptr, int nb_bytes, int row) {
+
+void gui_dump_mem(void *ptr, int nb_bytes, int row) {
     unsigned char *addr = (unsigned char *)ptr;
 
     int offset = (uint)addr % 16;

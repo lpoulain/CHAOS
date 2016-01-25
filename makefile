@@ -6,8 +6,9 @@ INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui
 
 All: chaos.img
 
-chaos.img:	kernel.elf
+chaos.img:	kernel.elf kernel_v.elf
 	cp kernel.elf /Volumes/CHAOS/
+	cp kernel_v.elf /Volumes/CHAOS/
 
 bin:	boot.bin kernel.bin
 	dd if=/dev/zero of=chaos0.img ibs=1k count=1440
@@ -20,14 +21,23 @@ boot.bin:	boot/boot.asm boot/bios.asm boot/pm_gdt.asm boot/pm_start.asm boot/pm_
 %.o : %.c ${HEADERS}
 	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@
 
-kernel/kernel_entry.o: kernel/kernel_entry.asm
-	nasm kernel/kernel_entry.asm -f elf32 -o kernel/kernel_entry.o
+kernel/hal.o: kernel/hal.asm
+	nasm kernel/hal.asm -f elf32 -o kernel/hal.o
+
+kernel/main_vga.o: kernel/main_vga.asm
+	nasm kernel/main_vga.asm -f elf32 -o kernel/main_vga.o
+
+kernel/main_text.o: kernel/main_text.asm
+	nasm kernel/main_text.asm -f elf32 -o kernel/main_text.o
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
 	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -o kernel.bin -Ttext 0x1000 $^ --oformat binary -Map kernel.map
 
-kernel.elf: kernel/kernel_entry.o ${OBJ}
+kernel.elf: kernel/main_text.o kernel/hal.o ${OBJ}
 	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -o kernel.elf $^ -Map kernel.map
+
+kernel_v.elf: kernel/main_vga.o kernel/hal.o ${OBJ}
+	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -o kernel_v.elf $^ -Map kernel_v.map
 
 clean:
 	rm -rf boot.bin

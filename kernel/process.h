@@ -12,7 +12,7 @@
 typedef struct process_t {
 	uint pid;							// The process ID
 	unsigned char buffer;				// A buffer (where the keyboard handler)
-	window win;							// The window used by the process
+	window *win;						// The window used by the process
 	page_directory *page_dir;			// The page directory
 	struct process_t *next;				// The next process
 	char stack[PROCESS_STACK_SIZE];		// The stack
@@ -27,13 +27,13 @@ typedef struct process_t {
 
 void init_processes();
 void start_process();
-process *get_process_focus();
 void switch_process();
-void switch_process_focus();
 int fork();
 void move_stack(void *new_stack_start, uint size);
 void init_tasking();
 int getpid();
 void error(const char*);
+
+extern volatile process *current_process;
 
 #endif

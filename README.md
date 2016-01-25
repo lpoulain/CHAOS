@@ -27,13 +27,13 @@ The kernel sets up several things:
 - Multitasking: the interrupts are also used to have a scheduler function called at regular intervals. This allows to perform context switches automatically.
 - A PS/2 mouse driver
 - A basic graphical environment: right now it mostly handles the mouse which can be used to select the focus window. The mouse can also be used to drag windows around, but this functionality is not completed yet and barely working
-- The OS still has the code that handles the standard 80x25 text mode (basic "window", mouse support). Because switching from video to text mode (and vice versa) is complex in protected mode, the text mode is currently dormant. A future version of CHAOS will have two versions of the kernel (one in graphic mode, one in text mode) that can be chosen at boot time
+- A text environment that handles the standard 80x25 text mode (basic "window", mouse support). Because switching from text to graphic mode (and vice versa) is complex in protected mode, the chaos.img disk image contains two versions of the kernel: one with the graphical environment (kernel_v.elf) and one with the text mode (kernel.elf). The version can be chosen at boot time.
 
 #### The processes
 
 The operating system launches two processes, each one represented by a shell in its own window (type "help" to see the available commands). Those processes are run concurrently and can perform tasks in parallel (this is the purpose of the "countdown" command). Press the Tab key to switch from one shell to the other.
 
-The up and down arrow keys are used to go through the previous shell commands. The left and right keys are used to move the address for the memory dump viewer ("mem <address>")
+The up and down arrow keys are used to go through the previous shell commands. The left and right keys are used to move the address for the memory dump viewer ("mem &lt;address&gt;")
 
 When the processes are waiting for a keyboard input, they are in polling mode, which means they are waiting for the keyboard handler to store any keystroke in their buffer. A process in polling mode is not being given cycles by the scheduler.
 

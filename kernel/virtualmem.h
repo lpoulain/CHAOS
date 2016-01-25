@@ -1,5 +1,5 @@
-#ifndef PAGING_H
-#define PAGING_H
+#ifndef VIRTUALMEM_H
+#define VIRTUALMEM_H
 
 // The page_table_entry, page_table and page_directory structures are specific to the
 // i386 family of processors

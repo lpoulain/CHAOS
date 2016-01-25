@@ -3,13 +3,15 @@
 #include "process.h"
 #include "parser.h"
 #include "floppy.h"
-#include "vga.h"
-#include "gui_mouse.h"
+#include "display.h"
+#include "display_vga.h"
+#include "gui_window.h"
 
-extern process *current_process;
-extern process *process_focus;
+extern void (*mouse_show)();
+extern void (*mouse_hide)();
 extern void stack_dump();
 extern void read_sectors();
+extern void reboot();
 
 typedef struct {
 	char entry[100][BUFFER_SIZE];
@@ -83,6 +85,16 @@ void process_command(window *win) {
 		return;
 	}
 
+	if (!strcmp(win->buffer, "redraw")) {
+		gui_redraw(win, win->left_x, win->right_x, win->top_y, win->bottom_y);
+		return;
+	}
+
+	if (!strcmp(win->buffer, "reboot")) {
+		reboot();
+		return;
+	}
+
 	// Prints the main memory pointers
 	if (!strcmp(win->buffer, "mem")) {
 	    debug_i("code:       ", (uint)&code);
@@ -127,7 +139,7 @@ void process_command(window *win) {
 	// Parsing arithmetic operations
 	int res = parse(win->buffer);
 	if (res <= 0) {
-		for (int i=0; i<7-res; i++) putc(win, ' ');
+		for (int i=0; i<7-res; i++) win->action->putc(win, ' ');
 		win->action->putc(win, '^');
 		win->action->putcr(win);
 		win->action->puts(win, "Syntax error");
@@ -181,8 +193,8 @@ void process_command(window *win) {
 	win->action->putcr(win);
 }
 
-void process_char(unsigned char c, cmd_hist *commands) {
-	window *win = &get_process_focus()->win;
+void process_char(unsigned char c, window *win, cmd_hist *commands) {
+//	window *win = get_process_focus()->win;
 
 	// If no keyboard key is captured do nothing
 	if (c == 0) return;
@@ -238,7 +250,7 @@ void process_char(unsigned char c, cmd_hist *commands) {
 		if (win->buffer_end == 0) return;
 		win->action->backspace(win);
 		win->action->set_cursor(win);
-		win->buffer[win->buffer_end--] = 0;
+		win->buffer_end--;
 		return;
 	}
 
@@ -257,7 +269,6 @@ void process_char(unsigned char c, cmd_hist *commands) {
 
 extern int new_process;
 extern int polling;
-extern process *current_process;
 extern void context_switch();
 
 unsigned char poll() {
@@ -275,21 +286,26 @@ unsigned char poll() {
 	return current_process->buffer;
 }
 
+typedef struct {
+	cmd_hist commands;
+
+} shell_data;
+
 void shell() {
-	window *win = &(current_process->win);
+	window *win = current_process->win;
 	win->action->init(win, "Shell");
 
 	cmd_hist commands;
 	memset(&commands, 0, sizeof(cmd_hist));
 
 	prompt(win);
-	if (process_focus == current_process) win->action->set_cursor(win);
+	if (win == window_focus) win->action->set_cursor(win);
 	win->buffer_end = 0;
 
 	for (;;) {
 		unsigned char c = poll();
-		gui_mouse_hide();
-		process_char(c, &commands);
-		gui_mouse_show();
+		mouse_hide();
+		process_char(c, win, &commands);
+		mouse_show();
 	}
 }

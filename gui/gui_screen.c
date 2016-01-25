@@ -2,7 +2,7 @@
 
 #include "libc.h"
 #include "display.h"
-#include "vga.h"
+#include "display_vga.h"
 
 void draw_hex(char b, int x, int y) {
 	char* str = "0x00"; //placeholder for size

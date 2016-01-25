@@ -5,8 +5,9 @@
 #include "isr.h"
 #include "process.h"
 #include "virtualmem.h"
-#include "vga.h"
+#include "display.h"
 #include "gui_window.h"
+#include "text_window.h"
 #include "gui_mouse.h"
 
 uint next_pid = 0;
@@ -15,20 +16,20 @@ extern page_directory *current_page_directory;
 // For now we are statically allocating the process structures
 char pad[7];
 process processes[3];
-process *process_focus;		           // The process which has user focus
+//process *process_focus;		           // The process which has user focus
 volatile process *current_process;  // The process which gets CPU cycles
 
 extern uint initial_esp;
 
 int new_process = 0;				// Indicates if it's the first "context switch"
 
+/*
 process *get_process_focus() {
 	return process_focus;
 }
-
+*/
 extern uint read_eip();
 extern uint get_eip();
-
 
 uint nb_processes = 0;
 
@@ -36,13 +37,17 @@ uint nb_processes = 0;
 void init_processes() {
 	processes[0].pid = 0;
 	processes[1].pid = 1;
-  processes[0].win = win1;
-  processes[1].win = win2;
+  if (display_mode() == VGA_MODE) {
+    init_window(&gui_win1, &processes[0]);
+    init_window(&gui_win2, &processes[1]);
+  } else {
+    init_window(&text_win1, &processes[0]);
+    init_window(&text_win2, &processes[1]);
+  }
 	processes[0].next = &processes[0];
 	processes[1].next = &processes[0];
 
 	current_process = &processes[0];
-	process_focus = current_process;
 }
 
 process *get_new_process(page_directory *dir) {
@@ -68,7 +73,6 @@ void init_tasking()
 
     // Initialise the first process
     current_process = get_new_process(current_page_directory);
-    process_focus = current_process;
 
     // Relocate the stack so we know where it is.
     move_stack((char*)&current_process->eax, 0x2000);
@@ -283,15 +287,6 @@ void switch_process()
       sti;                 \
       jmp *%%eax           "
                  : : "r"(esp_global), "r"(ebp_global), "r"(current_page_directory), "r"(eip_global));
-}
-
-// Changes the process which has the focus
-void switch_process_focus() {
-    gui_mouse_hide();
-    process_focus->win.action->remove_focus(&process_focus->win);
-    process_focus = process_focus->next;
-    process_focus->win.action->set_focus(&process_focus->win);
-    gui_mouse_show();
 }
 
 // Spawn a new process

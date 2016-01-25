@@ -62,25 +62,25 @@ struct idt_ptr_struct
 typedef struct idt_ptr_struct idt_ptr_t;
 
 // These extern directives let us access the addresses of our ASM ISR handlers.
-extern void isr0 ();
-extern void isr1 ();
-extern void isr2 ();
-extern void isr3 ();
-extern void isr4 ();
-extern void isr5 ();
-extern void isr6 ();
-extern void isr7 ();
-extern void isr8 ();
-extern void isr9 ();
-extern void isr10();
-extern void isr11();
-extern void isr12();
-extern void isr13();
-extern void isr14();
-extern void isr15();
-extern void isr16();
-extern void isr17();
-extern void isr18();
+extern void isr0 ();    // Division by zero
+extern void isr1 ();    // Debug
+extern void isr2 ();    // Non Maskable Interrupt
+extern void isr3 ();    // Breakpoint
+extern void isr4 ();    // Into Detected Overflow
+extern void isr5 ();    // Out of Bounds
+extern void isr6 ();    // Invalid Opcode
+extern void isr7 ();    // No Coprocessor
+extern void isr8 ();    // Double Fault
+extern void isr9 ();    // Coprocessor Segment Overrun
+extern void isr10();    // Bad TSS
+extern void isr11();    // Segment Not Present
+extern void isr12();    // Stack Fault
+extern void isr13();    // General Protection Fault
+extern void isr14();    //Page Fault
+extern void isr15();    // Unknown Interrupt
+extern void isr16();    // Coprocessor Fault
+extern void isr17();    // Alignment Check
+extern void isr18();    // Machine Check
 extern void isr19();
 extern void isr20();
 extern void isr21();

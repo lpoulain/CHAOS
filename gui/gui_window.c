@@ -1,15 +1,35 @@
 #include "libc.h"
+#include "heap.h"
 #include "display.h"
-#include "process.h"
-#include "vga.h"
+//#include "process.h"
+#include "display_vga.h"
+#include "gui_window.h"
 #include "gui_mouse.h"
 
-extern process *process_focus;
-extern process processes[3];
+//extern process processes[3];
+
+// Given two rectangles, compute the intersection
+int intersection(rect *rect1, rect *rect2, rect *intersect) {
+
+	// If the two rectangles do not intersect, return null
+	if (rect1->right_x < rect2->left_x ||
+		rect2->right_x < rect1->left_x ||
+		rect1->bottom_y < rect2->top_y ||
+		rect2->bottom_y < rect1->top_y)
+		return 0;
+
+	intersect->left_x = umax(rect1->left_x, rect2->left_x);
+	intersect->right_x = umin(rect1->right_x, rect2->right_x);
+	intersect->top_y = umax(rect1->top_y, rect2->top_y);
+	intersect->bottom_y = umin(rect1->bottom_y, rect2->bottom_y);
+
+	return 1;
+}
 
 ///////////////////////////////////////////////////////////////
 // GUI Window functions
 ///////////////////////////////////////////////////////////////
+void gui_redraw_frame(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y);
 
 // We've reached the bottom of the window, we need to scroll everything up one line
 void gui_scroll(window *win) {
@@ -23,14 +43,19 @@ void gui_next_line(window *win) {
 	win->cursor_x = win->left_x + 2;
 	win->cursor_y += 8;
 
+	if (win->text_end % 80 > 0) {
+		uint bytes_to_end = 80 - (win->text_end % 80);
+		memset(win->text + win->text_end, 0, bytes_to_end);
+		win->text_end += bytes_to_end;
+	}
+
 	if (win->cursor_y + 8 > win->bottom_y - 2) gui_scroll(win);
 }
 
 void gui_set_cursor(window *win) {
-	if (&process_focus->win != win) return;
+	if (window_focus != win) return;
 
 	if (win->cursor_x + 8 > win->right_x - 2) gui_next_line(win);
-
 	draw_font(0, win->cursor_x, win->cursor_y);
 }
 
@@ -53,8 +78,20 @@ void gui_draw_window_header(window *win, int focus) {
 	draw_string(win->title, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
 }
 
-void gui_set_focus(window *win) {
+void gui_set_focus(window *win, window *win_old) {
+	window_focus = win;
+
+	rect to_redraw;
+	rect win1 = { .left_x = win->left_x, .right_x = win->right_x, .top_y = win->top_y, .bottom_y = win->bottom_y };
+	rect win2 = { .left_x = win_old->left_x, .right_x = win_old->right_x, .top_y = win_old->top_y, .bottom_y = win_old->bottom_y };
+	int nb_rects_to_redraw = intersection(&win1, &win2, &to_redraw);
+	if (nb_rects_to_redraw > 0) {
+//		gui_redraw_frame(win, to_redraw.left_x, to_redraw.right_x, to_redraw.top_y, to_redraw.bottom_y);
+		gui_redraw(win, to_redraw.left_x, to_redraw.right_x, to_redraw.top_y, to_redraw.bottom_y);
+	}
+
 	gui_draw_window_header(win, 1);
+
 	gui_set_cursor(win);
 }
 
@@ -67,6 +104,9 @@ void gui_init(window *win, const char *title) {
 	int i;
 
 	win->title = title;
+	win->text = (char*)kmalloc(4800, 0);
+	memset(win->text, 0, 4800);
+	win->text_end = 0;
 
 	// Draws the top and bottom lines of the window
 	for (i=win->left_x; i<win->right_x; i++) {
@@ -75,10 +115,7 @@ void gui_init(window *win, const char *title) {
 		draw_pixel(i, win->top_y + 9);
 	}
 
-	gui_draw_window_header(win, (&process_focus->win == win));
-
-	int len = strlen(title) * 8;
-	draw_string(title, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
+	gui_draw_window_header(win, (window_focus == win));
 
 	// Draws the left and right lines of the window
 	for (i=win->top_y; i<=win->bottom_y; i++) {
@@ -98,26 +135,37 @@ void gui_cls(window *win) {
 	draw_box(win->left_x+1, win->right_x-1, win->top_y+10, win->bottom_y-1);
 	win->cursor_x = win->left_x + 2;
 	win->cursor_y = win->top_y + 11;
+	win->text_end = 0;
 	gui_set_cursor(win);
 }
 
 void gui_puts(window *win, const char *msg) {
-	uint len = strlen(msg);
 	uint substring_len;
+	uint bytes_to_end;
 	const char *msg_start = msg;
+	uint len = strlen(msg);
 
+	// While the line to print is larger than the number of characters left on the row
+	// Cut the first part to fill the row and go to the next line
 	while (win->cursor_x + len * 8 > win->right_x - 2) {
 		substring_len = (win->right_x - 2 - win->cursor_x) / 8;
 		draw_string_n(msg_start, win->cursor_x, win->cursor_y,  substring_len);
+		memcpy(win->text + win->text_end, msg_start, substring_len);
+
 		msg_start += substring_len;
+		win->text_end += substring_len;
 		len -= substring_len;
 
+		// This call updates win->cursor_x and win->cursor_y
 		gui_next_line(win);
 	}
 
 	draw_string(msg_start, win->cursor_x, win->cursor_y);
+	memcpy(win->text + win->text_end, msg_start, len);
 
+	win->text_end += len;
 	win->cursor_x += len*8;
+
 	gui_set_cursor(win);
 }
 
@@ -125,6 +173,7 @@ void gui_putc(window *win, char c) {
 	draw_font(c, win->cursor_x, win->cursor_y);
 
 	win->cursor_x += 8;
+	win->text[win->text_end++] = c;
 	gui_set_cursor(win);
 }
 
@@ -174,6 +223,7 @@ void gui_putnb(window *win, int nb) {
 void gui_backspace(window *win) {
 	gui_remove_cursor(win);
 	win->cursor_x -= 8;
+	win->text_end--;
 	gui_set_cursor(win);
 }
 
@@ -181,6 +231,63 @@ void gui_putcr(window *win) {
 	gui_remove_cursor(win);
 	gui_next_line(win);
 	gui_set_cursor(win);
+}
+
+// Redraws the window frame and header - but only the part inside the box
+void gui_redraw_frame(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+	int i;
+
+	// Draws the top and bottom lines of the window
+	for (i=umax(win->left_x, left_x); i<umin(win->right_x, right_x+1); i++) {
+		if (win->top_y >= top_y && win->top_y <= bottom_y) draw_pixel(i, win->top_y);
+		if (win->bottom_y >= top_y && win->bottom_y <= bottom_y) draw_pixel(i, win->bottom_y);
+		if (win->top_y+9 >= top_y && win->top_y+9 <= bottom_y) draw_pixel(i, win->top_y + 9);
+	}
+
+	if (window_focus == win) {
+		for (int j=umax(win->top_y + 3, top_y); j<umin(win->top_y + 9, top_y+1); j += 3) {
+			for (int i=umax(win->left_x + 3, left_x); i<umin(win->right_x - 1, right_x); i+=3) {
+				draw_pixel(i, j);
+			}
+		}
+	}
+
+	int len = strlen(win->title) * 8;
+	draw_string_inside_frame(win->title,
+							 win->left_x + 1 + (win->right_x - win->left_x - len) / 2,
+							 win->top_y + 1,
+							 left_x, right_x, top_y, bottom_y);
+
+	// Draws the left and right lines of the window
+	for (i=umax(win->top_y, top_y); i<=umin(win->bottom_y, bottom_y+1); i++) {
+		if (win->left_x >= left_x && win->left_x <= right_x) draw_pixel(win->left_x, i);
+		if (win->right_x >= left_x && win->right_x <= right_x) draw_pixel(win->right_x, i);
+	}	
+}
+
+void gui_redraw(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+	draw_box(left_x, right_x, top_y, bottom_y);
+	gui_redraw_frame(win, left_x, right_x, top_y, bottom_y);
+
+	int max_text_offset_x = (win->right_x - win->left_x) / 8;
+	int max_text_offset_y = (win->bottom_y - win->top_y) / 8;
+
+	int left_text_offset = min(max(((int)left_x - (int)win->left_x) / 8, 0), max_text_offset_x);
+	int right_text_offset = min(max(((int)right_x - (int)win->left_x) / 8 + 1, 0), max_text_offset_x);
+	int top_text_offset = min(max(((int)top_y - (int)win->top_y) / 8, 0), max_text_offset_y);
+	int bottom_text_offset = min(max(((int)bottom_y - (int)win->top_y) / 8 + 1, 0), max_text_offset_y);
+
+	for (int j=top_text_offset; j<=bottom_text_offset; j++) {
+		for (int i=left_text_offset; i<=right_text_offset; i++) {
+			if (i+j*80 > win->text_end) break;
+
+			const unsigned char c = win->text[i + j*80];
+			if (c != 0) draw_font_inside_frame(c,
+												 2 + i*8 + win->left_x, j*8 + win->top_y + 11,
+												 left_x, right_x, top_y, bottom_y);
+		}
+
+	}
 }
 
 // Definition of the various windowing primitives in the GUI environment
@@ -195,19 +302,20 @@ struct window_action gui_window_action = {
 	.putcr = &gui_putcr,
 	.set_cursor = &gui_set_cursor,
 	.set_focus = &gui_set_focus,
-	.remove_focus = &gui_remove_focus
+	.remove_focus = &gui_remove_focus,
+	.redraw = &gui_redraw
 };
 
 // We define two windows
-window win1 = {
+window gui_win1 = {
 	.left_x = 10,
-	.right_x = 500,
+	.right_x = 400,
 	.top_y = 10,
 	.bottom_y = 200,
 	.action = &gui_window_action
 };
 
-window win2 = {
+window gui_win2 = {
 	.left_x = 20,
 	.right_x = 630,
 	.top_y = 230,
@@ -217,18 +325,21 @@ window win2 = {
 
 // When the user clicks on the mouse, the focus window may change
 window *gui_handle_mouse_click(uint mouse_x, uint mouse_y) {
-	for (int i=0; i<2; i++) {
-		if (mouse_x >= processes[i].win.left_x &&
-			mouse_x <= processes[i].win.right_x &&
-			mouse_y >= processes[i].win.top_y &&
-			mouse_y <= processes[i].win.bottom_y) {
+	window *new_window_focus = window_focus;
 
-			process_focus->win.action->remove_focus(&process_focus->win);
-			process_focus = &processes[i];
-			process_focus->win.action->set_focus(&process_focus->win);
-			return &process_focus->win;
-		}
-	}
+	do {
+		if (mouse_x >= new_window_focus->left_x &&
+			mouse_x <= new_window_focus->right_x &&
+			mouse_y >= new_window_focus->top_y &&
+			mouse_y <= new_window_focus->bottom_y) break;
 
-	return 0;
+		new_window_focus = new_window_focus->next;
+	} while (new_window_focus != window_focus);
+
+	if (new_window_focus == window_focus) return window_focus;
+
+	window_focus->action->remove_focus(window_focus);
+	new_window_focus->action->set_focus(new_window_focus, window_focus);
+
+	return window_focus;
 }

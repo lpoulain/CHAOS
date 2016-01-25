@@ -1,10 +1,10 @@
 #include "libc.h"
 #include "kernel.h"
 #include "keyboard.h"
+#include "display.h"
 #include "process.h"
 #include "isr.h"
 
-extern process *current_process;
 extern void stack_dump();
 
 // US Keyboard layout
@@ -129,7 +129,7 @@ static void keyboard_handler(registers_t regs)
 
         // If the user has pressed tab, switch the focus process
         if (c == '\t') {
-            switch_process_focus();
+            switch_window_focus();
             return;
         }
 
@@ -139,6 +139,7 @@ static void keyboard_handler(registers_t regs)
         // it means it is waiting for keyboard input
         // The handler is thus filling the process buffer and flipping
         // off the PROCESS_POLLING flag
+        
         process *ps = get_process_focus();
         if (ps->flags | PROCESS_POLLING) {
             ps->buffer = c;

@@ -2,7 +2,7 @@
 
 #include "libc.h"
 #include "display.h"
-#include "vga.h"
+#include "display_vga.h"
 #include "gui_mouse.h"
 #include "gui_window.h"
 
@@ -10,6 +10,8 @@ static int mouse_x = 320;
 static int mouse_y = 200;
 
 window *window_focus = 0;
+
+uint window_copy_buffer[20*480];
 
 int window_focus_x;
 int window_focus_y;
@@ -146,49 +148,94 @@ void gui_mouse_unclick() {
 	}
 
 	// Copies the window to the new place
-	// Because we are copying what is on the screen, we need to make sure we are copying
-	// from either top to bottom or bottom to top, depending on the case
-	// The only time this does not work is when we copy the window to the left
-	// In a future versions we might want to ask the process to redraw the window
-   	if (delta_y < 0) {
-	   	unsigned char *src = (unsigned char *)VGA_ADDRESS + 80*window_focus->top_y + window_focus->left_x/8;
-	   	unsigned char *dst = (unsigned char *)VGA_ADDRESS + 80*window_focus_y + window_focus_x/8;
 
-	    for (i=window_focus->top_y; i<=window_focus->bottom_y; i++) {
-		    bitarray_copy((const unsigned char *)src, window_focus->left_x % 8, window_focus->right_x - window_focus->left_x + 1,
-		    			  dst, window_focus_x % 8);
-		    src += 80;
-		    dst += 80;
-		}
-	} else {
-	   	unsigned char *src = (unsigned char *)VGA_ADDRESS + 80*window_focus->bottom_y + window_focus->left_x/8;
-	   	unsigned char *dst = (unsigned char *)VGA_ADDRESS + 80*(window_focus_y + window_focus_height - 1) + window_focus_x/8;
+	// First copy the screen to a buffer
+	// In order to deal only with 32-bit, we copy whole lines of pixels
+	uint *src1 = (uint*)(VGA_ADDRESS + 80*window_focus->top_y);
+	lmemcpy((uint*)&window_copy_buffer, src1, 20*(window_focus->bottom_y - window_focus->top_y + 1));
 
-	    for (i=window_focus->bottom_y; i>= window_focus->top_y; i--) {
-		    bitarray_copy((const unsigned char *)src, window_focus->left_x % 8, window_focus->right_x - window_focus->left_x + 1,
-		    			  dst, window_focus_x % 8);
-		    src -= 80;
-		    dst -= 80;
-		}
-	}
 
 	// Refreshes the two rectangles which are not hidden anymore by the window
 	// For now just draws the background
 
+	// We need to redraw what is behind the old position
+	// There is of course the background, but also the other window
+	rect redraw_background[2];
+	rect redraw_other_window[2];
+	int nb_rects_to_redraw = 0;
+
+	// First step: redraw the background
 	int y_from, y_to;
 	if (delta_y > 0) {
 		draw_background(window_focus->left_x, window_focus->right_x, window_focus->top_y, window_focus_y - 1);
 		y_from = window_focus_y;
 		y_to = window_focus->bottom_y;
+
+		redraw_background[0].left_x = window_focus->left_x;
+		redraw_background[0].right_x = window_focus->right_x;
+		redraw_background[0].top_y = window_focus->top_y;
+		redraw_background[0].bottom_y = window_focus_y - 1;
 	} else {
 		draw_background(window_focus->left_x, window_focus->right_x, window_focus_y + window_focus_height, window_focus->bottom_y);
 		y_from = window_focus->top_y;
 		y_to = window_focus_y + window_focus_height;
+
+		redraw_background[0].left_x = window_focus->left_x;
+		redraw_background[0].right_x = window_focus->right_x;
+		redraw_background[0].top_y = window_focus_y + window_focus_height;
+		redraw_background[0].bottom_y = window_focus->bottom_y;
 	}
 	if (delta_x > 0) {
 		draw_background(window_focus->left_x, window_focus_x - 1, y_from, y_to);
+
+		redraw_background[1].left_x = window_focus->left_x;
+		redraw_background[1].right_x = window_focus_x - 1;
+		redraw_background[1].top_y = y_from;
+		redraw_background[1].bottom_y = y_to;
 	} else {
 		draw_background((uint)(window_focus_x + window_focus_width), (uint)(window_focus->right_x), y_from, y_to);
+
+		redraw_background[1].left_x = window_focus_x + window_focus_width;
+		redraw_background[1].right_x = window_focus->right_x;
+		redraw_background[1].top_y = y_from;
+		redraw_background[1].bottom_y = y_to;
+	}
+
+
+	// Then do a copy to the target
+   	unsigned char *src = (unsigned char *)&window_copy_buffer + window_focus->left_x/8;
+   	unsigned char *dst = (unsigned char *)VGA_ADDRESS + 80*window_focus_y + window_focus_x/8;
+
+    for (i=window_focus->top_y; i<=window_focus->bottom_y; i++) {
+	    bitarray_copy((const unsigned char *)src, window_focus->left_x % 8, window_focus->right_x - window_focus->left_x + 1,
+		    			  dst, window_focus_x % 8);
+	    src += 80;
+	    dst += 80;
+	}
+
+
+	// Second step: redraw the other window
+	window *other_window;
+	if (window_focus == &gui_win1) other_window = &gui_win2;
+	else other_window = &gui_win1;
+	rect other_window_rect = {
+								.left_x = other_window->left_x,
+								.right_x = other_window->right_x,
+								.top_y = other_window->top_y,
+								.bottom_y = other_window->bottom_y
+							 };
+	for (i=0; i<2; i++) {
+		nb_rects_to_redraw += intersection(&redraw_background[i], &other_window_rect, &redraw_other_window[nb_rects_to_redraw]);
+	}
+
+	if (nb_rects_to_redraw > 0) 
+
+	for (i=0; i<nb_rects_to_redraw; i++) {
+		other_window->action->redraw(other_window,
+						   redraw_other_window[i].left_x,
+						   redraw_other_window[i].right_x,
+						   redraw_other_window[i].top_y,
+						   redraw_other_window[i].bottom_y);
 	}
 
 	// Sets the new window settings
