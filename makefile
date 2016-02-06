@@ -1,14 +1,16 @@
-SDIR = kernel lib drivers utils
-C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c)
-HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h)
+SDIR = kernel lib drivers utils fs
+C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c fs/*.c)
+HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h fs/*.h)
 OBJ = ${C_SOURCES:.c=.o}
-INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui
+INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui -I ./fs
 
 All: chaos.img
 
-chaos.img:	kernel.elf kernel_v.elf
+chaos.img:	kernel.elf kernel_v.elf kernel.sym kernel_v.sym
 	cp kernel.elf /Volumes/CHAOS/
 	cp kernel_v.elf /Volumes/CHAOS/
+	cp kernel.sym /Volumes/CHAOS/
+	cp kernel_v.sym /Volumes/CHAOS/
 
 bin:	boot.bin kernel.bin
 	dd if=/dev/zero of=chaos0.img ibs=1k count=1440
@@ -39,6 +41,13 @@ kernel.elf: kernel/main_text.o kernel/hal.o ${OBJ}
 kernel_v.elf: kernel/main_vga.o kernel/hal.o ${OBJ}
 	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -o kernel_v.elf $^ -Map kernel_v.map
 
+kernel.sym: kernel.elf
+	./objcopy --only-keep-debug kernel.elf kernel.sym
+
+kernel_v.sym: kernel_v.elf
+	./objcopy --only-keep-debug kernel_v.elf kernel_v.sym
+	./objdump -g kernel_v.sym > symbols.txt >& /dev/null
+
 clean:
 	rm -rf boot.bin
 	rm -rf kernel.bin
@@ -47,3 +56,4 @@ clean:
 	rm -rf lib/*.o
 	rm -rf drivers/*.o
 	rm -rf utils/*.o
+	rm -rf fs/*.o

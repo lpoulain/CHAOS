@@ -12,8 +12,8 @@
 typedef struct process_t {
 	uint pid;							// The process ID
 	unsigned char buffer;				// A buffer (where the keyboard handler)
-	window *win;						// The window used by the process
-	page_directory *page_dir;			// The page directory
+	Window *win;						// The window used by the process
+	PageDirectory *page_dir;			// The page directory
 	struct process_t *next;				// The next process
 	char stack[PROCESS_STACK_SIZE];		// The stack
 	uint eax;							// Some registers
@@ -23,7 +23,7 @@ typedef struct process_t {
 	uint flags;							// Some flags
 	void (*function) ();				// The function to call after initialization
 	char error[128];					// Buffer for errors
-} process;
+} Process;
 
 void init_processes();
 void start_process();
@@ -34,6 +34,6 @@ void init_tasking();
 int getpid();
 void error(const char*);
 
-extern volatile process *current_process;
+extern volatile Process *current_process;
 
 #endif

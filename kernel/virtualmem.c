@@ -5,12 +5,12 @@
 #include "isr.h"
 
 // The kernel's page directory
-//page_directory *kernel_directory=0;
+//PageDirectory *kernel_directory=0;
 
 // The current page directory;
-page_directory *current_page_directory=0;
+PageDirectory *current_page_directory=0;
 
-void print_page_directory(page_directory *);
+void print_page_directory(PageDirectory *);
 extern void copy_physical_page(uint, uint);
 extern void stack_dump();
 
@@ -75,7 +75,7 @@ static uint first_free_frame() {
 }
 
 void map_to_first_available(uint virtual_addr, int is_user, int is_writeable) {
-    page_table_entry *pte = get_PTE(virtual_addr, current_page_directory, 1);
+    PageTableEntry *pte = get_PTE(virtual_addr, current_page_directory, 1);
     
     // The page already has a frame, nothing to do
     if (pte->frame != 0) return;
@@ -98,7 +98,7 @@ void map_to_first_available(uint virtual_addr, int is_user, int is_writeable) {
 
 // Maps a page at virtual_addr to physical_addr in RAM
 void map_page(uint virtual_addr, uint physical_addr, int is_user, int is_writeable) {
-    page_table_entry *pte = get_PTE(virtual_addr, current_page_directory, 1);
+    PageTableEntry *pte = get_PTE(virtual_addr, current_page_directory, 1);
 
     // The page is already mapped
     if (pte->frame != 0) return;
@@ -114,7 +114,7 @@ void map_page(uint virtual_addr, uint physical_addr, int is_user, int is_writeab
 
 // Unmap a page
 void unmap_page(uint virtual_addr) {
-    page_table_entry *pte = get_PTE(virtual_addr, current_page_directory, 0);
+    PageTableEntry *pte = get_PTE(virtual_addr, current_page_directory, 0);
 
     // If the page isn't mapped, nothing to do
     if (pte == 0 || pte->frame == 0) return;
@@ -134,14 +134,14 @@ void map_forbidden(uint virtual_addr) {
     map_page(virtual_addr, (uint)forbidden_page, 0, 0);
 }
 
-page_table_entry *get_PTE(uint address, page_directory *dir, int create_if_not_exist) {
+PageTableEntry *get_PTE(uint address, PageDirectory *dir, int create_if_not_exist) {
     address /= 0x1000;
     uint page_table_idx = address / 1024;
     uint page_table_entry_idx = address % 1024;
 
     // If the page table already exists, return the PTE
     if (dir->entry[page_table_idx])
-        return &( ((page_table *)(dir->entry[page_table_idx] & 0xFFFFF000))->pte[page_table_entry_idx] );
+        return &( ((PageTable *)(dir->entry[page_table_idx] & 0xFFFFF000))->pte[page_table_entry_idx] );
 
     // If it doesn't exist and we don't want to create one,
     // return 0
@@ -149,9 +149,9 @@ page_table_entry *get_PTE(uint address, page_directory *dir, int create_if_not_e
 
     // Allocate a new page table (= 1024 PTE)
     uint physical_address;
-    page_table *pt = (page_table *)kmalloc_a(sizeof(page_table), &physical_address);
+    PageTable *pt = (PageTable *)kmalloc_a(sizeof(PageTable), &physical_address);
 //    debug_i("New page table: ", (uint)pt);
-    memset(pt, 0, sizeof(page_table));
+    memset(pt, 0, sizeof(PageTable));
 
     // Sets the page directory entry (flags = 0x1: present, 0x2: read/write, 0x4: user accesible)
     dir->entry[page_table_idx] = physical_address | 0x7;
@@ -160,9 +160,9 @@ page_table_entry *get_PTE(uint address, page_directory *dir, int create_if_not_e
     return &pt->pte[page_table_entry_idx];
 }
 
-page_directory *kernel_page_directory;
+PageDirectory *kernel_page_directory;
 extern uint initial_esp;
-page_table page_tables[300];
+PageTable page_tables[300];
 
 char forbidden_page_motif[177] ="\
     _______     \
@@ -196,15 +196,15 @@ void init_virtualmem()
     memcpy(forbidden_page + 4048, forbidden_page_motif, 48);
 
     // Create the kernel page directory
-    kernel_page_directory = (page_directory*)kmalloc_a(sizeof(page_directory), 0);
-    memset(kernel_page_directory, 0, sizeof(page_directory));
+    kernel_page_directory = (PageDirectory*)kmalloc_a(sizeof(PageDirectory), 0);
+    memset(kernel_page_directory, 0, sizeof(PageDirectory));
     current_page_directory = kernel_page_directory;
 
     // Map the whole memory (right now, virtual mem = physical mem)
     // Note that we map beyond the current end of the heap
     // Because we also map future heap
     addr = 0;
-    while (addr < next_memory_block + 0x10000 && addr < 0x1000000)
+    while (addr < next_memory_block + 0x80000 && addr < 0x1000000)
     {
         // Kernel code is readable but not writeable from userspace.
         map_page(addr, addr, 1, 1);
@@ -227,7 +227,7 @@ void init_virtualmem()
 //    print_page_directory(kernel_page_directory);
 }
 
-void switch_page_directory(page_directory *dir)
+void switch_page_directory(PageDirectory *dir)
 {
     // Sets the new page directory (in the kernel and the CPU)
     current_page_directory = dir;
@@ -240,12 +240,12 @@ void switch_page_directory(page_directory *dir)
     asm volatile("mov %0, %%cr0":: "r"(cr0));
 }
 
-static page_table *clone_page_table(page_table *src, uint *physAddr)
+static PageTable *clone_page_table(PageTable *src, uint *physAddr)
 {
     // Make a new page table, which is page aligned.
-    page_table *dst = (page_table*)kmalloc_a(sizeof(page_table), physAddr);
+    PageTable *dst = (PageTable*)kmalloc_a(sizeof(PageTable), physAddr);
     // Ensure that the new table is blank.
-    memset(dst, 0, sizeof(page_table));
+    memset(dst, 0, sizeof(PageTable));
 
     // For every entry in the table...
     int i;
@@ -269,13 +269,13 @@ static page_table *clone_page_table(page_table *src, uint *physAddr)
     return dst;
 }
 
-page_directory *clone_page_directory(page_directory *src)
+PageDirectory *clone_page_directory(PageDirectory *src)
 {
     uint phys;
     // Make a new page directory and obtain its physical address.
-    page_directory *dst = (page_directory*)kmalloc_a(sizeof(page_directory), &phys);
+    PageDirectory *dst = (PageDirectory*)kmalloc_a(sizeof(PageDirectory), &phys);
     // Ensure that it is blank.
-    memset(dst, 0, sizeof(page_directory));
+    memset(dst, 0, sizeof(PageDirectory));
 
     // Go through each page table. If the page table is in the kernel directory, do not make a new copy.
     int i;
@@ -293,7 +293,7 @@ page_directory *clone_page_directory(page_directory *src)
         {
             // Copy the table.
             uint phys;
-            clone_page_table((page_table *)(src->entry[i] & 0xFFFFF000), &phys);
+            clone_page_table((PageTable *)(src->entry[i] & 0xFFFFF000), &phys);
             dst->entry[i] = phys | 0x07;
         }
     }
@@ -304,12 +304,12 @@ page_directory *clone_page_directory(page_directory *src)
 }
 
 // Debug function that prints the contents of a page directory
-void print_page_directory(page_directory *dir) {
+void print_page_directory(PageDirectory *dir) {
     debug_i("Page directory at: ", (uint)dir);
     for (int i=0; i<3; i++) {
         if (dir->entry[i] == 0) continue;
 
-        page_table *pt = (page_table *)(dir->entry[i] & 0xFFFFF000);
+        PageTable *pt = (PageTable *)(dir->entry[i] & 0xFFFFF000);
         debug("- Entry (");
         if (dir->entry[i] & 0x1) debug("present ");
         if (dir->entry[i] & 0x2) debug("writeable ");
@@ -317,7 +317,7 @@ void print_page_directory(page_directory *dir) {
         debug_i(") -> ", (uint)pt);
 
         for (int j=0; j<4; j++) {
-            page_table_entry *pte = &(pt->pte[j]);
+            PageTableEntry *pte = &(pt->pte[j]);
             if (pte->frame == 0) continue;
 
             debug("    - Page table entry (");
@@ -353,7 +353,7 @@ static void page_fault(registers_t regs)
     if (rw) {debug("read-only ");}
     if (us) {debug("user-mode ");}
     if (reserved) {debug("reserved ");}
-    debug_i(") at 0x", faulting_address);
+    printf(") at [%x] \n", faulting_address);
 
     stack_dump();
 

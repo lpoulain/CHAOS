@@ -7,9 +7,12 @@
 #include "gui_screen.h"
 #include "gui_mouse.h"
 #include "text_mouse.h"
+#include "gui_window.h"
+#include "text_window.h"
 
 uint vga;
-window *window_focus;
+Window *window_focus;
+Window *window_debug;
 
 // Tells whether we are in VGA or text
 uint display_mode() {
@@ -19,7 +22,7 @@ uint display_mode() {
 
 // Initialize
 
-process *get_process_focus() {
+Process *get_process_focus() {
 	return window_focus->ps;
 }
 
@@ -30,7 +33,7 @@ void (*mouse_show)();
 void (*mouse_hide)();
 void (*dump_mem)(void *, int, int);
 
-void init_window(window *win, process *ps) {
+void init_window(Window *win, Process *ps) {
 	win->ps = ps;
 	ps->win = win;
 
@@ -38,7 +41,7 @@ void init_window(window *win, process *ps) {
 		window_focus = win;
 		win->next = win;
 	} else {
-		window *tmp = window_focus->next;
+		Window *tmp = window_focus->next;
 		window_focus->next = win;
 		win->next = tmp;
 	}
@@ -54,12 +57,13 @@ void switch_window_focus() {
     gui_mouse_show();
 }
 
+Window *set_window_debug(Window *new) {
+	Window *old = window_debug;
+	window_debug = new;
+	return old;
+}
+
 void init_display(uint flags) {
-	draw_box(0, 0, 100, 100);
-	draw_ptr((void*)flags, 0, 0);
-
-	text_print_int(flags, 0, 0);
-
 	if (flags & 0x4) {
 		init_vga();
 		mouse_move = &gui_mouse_move;
@@ -68,6 +72,7 @@ void init_display(uint flags) {
 		mouse_show = &gui_mouse_show;
 		mouse_hide = &gui_mouse_hide;
 		dump_mem = &gui_dump_mem;
+		window_debug = &gui_debug_win;
 		vga = 1;
 	} else {
 		init_text();
@@ -77,6 +82,9 @@ void init_display(uint flags) {
 		mouse_show = &text_mouse_show;
 		mouse_hide = &text_mouse_hide;
 		dump_mem = &text_dump_mem;
+		window_debug = &text_win2;
 		vga = 0;
 	}
+
+	window_debug->action->init(window_debug, "Debug");
 }

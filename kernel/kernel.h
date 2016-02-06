@@ -3,7 +3,7 @@
 
 extern unsigned char inportb (unsigned short _port);
 extern void outportb (unsigned short _port, unsigned char _data);
-void outb(u16int port, u8int value);
-u8int inb(u16int port);
+void outb(uint16 port, uint8 value);
+uint8 inb(uint16 port);
 
 #endif

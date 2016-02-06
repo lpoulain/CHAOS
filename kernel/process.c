@@ -11,23 +11,18 @@
 #include "gui_mouse.h"
 
 uint next_pid = 0;
-extern page_directory *current_page_directory;
+extern PageDirectory *current_page_directory;
 
 // For now we are statically allocating the process structures
 char pad[7];
-process processes[3];
+Process processes[3];
 //process *process_focus;		           // The process which has user focus
-volatile process *current_process;  // The process which gets CPU cycles
+volatile Process *current_process;  // The process which gets CPU cycles
 
 extern uint initial_esp;
 
 int new_process = 0;				// Indicates if it's the first "context switch"
 
-/*
-process *get_process_focus() {
-	return process_focus;
-}
-*/
 extern uint read_eip();
 extern uint get_eip();
 
@@ -50,8 +45,8 @@ void init_processes() {
 	current_process = &processes[0];
 }
 
-process *get_new_process(page_directory *dir) {
-    process *ps = &processes[nb_processes];
+Process *get_new_process(PageDirectory *dir) {
+    Process *ps = &processes[nb_processes];
     if (current_process) current_process->next = ps;
     ps->next = &processes[0];
     memset(&ps->stack, 0, PROCESS_STACK_SIZE);
@@ -249,7 +244,7 @@ void switch_process()
   */
 
     // Get the next process. The processes are linked in a circular linked list
-    process *new_process = current_process->next;
+    Process *new_process = current_process->next;
     // We skip processes that are polling (e.g. waiting for the keyboard)
     // as there is no need to spend cycles on them
     while (new_process->flags & PROCESS_POLLING &&
@@ -296,10 +291,10 @@ int fork()
     asm volatile("cli");
 
     // Clone the address space.
-    page_directory *directory = clone_page_directory(current_page_directory);
+    PageDirectory *directory = clone_page_directory(current_page_directory);
 
     // Create a new child process.
-    process *new_process = get_new_process(directory);
+    Process *new_process = get_new_process(directory);
 
     // Copy the stack of the parent process to the child process
     copy_stack((void*)&new_process->eax, (void*)&current_process->eax);

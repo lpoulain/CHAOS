@@ -10,20 +10,20 @@ extern void idt_flush(uint);
 // Internal function prototypes.
 static void init_gdt();
 static void init_idt();
-static void gdt_set_gate(s32int,uint,uint,u8int,u8int);
-static void idt_set_gate(u8int,uint,u16int,u8int);
+static void gdt_set_gate(sint32,uint,uint,uint8,uint8);
+static void idt_set_gate(uint8,uint,uint16,uint8);
 
 // This structure contains the value of one GDT entry.
 // We use the attribute 'packed' to tell GCC not to change
 // any of the alignment in the structure.
 struct gdt_entry_struct
 {
-    u16int limit_low;           // The lower 16 bits of the limit.
-    u16int base_low;            // The lower 16 bits of the base.
-    u8int  base_middle;         // The next 8 bits of the base.
-    u8int  access;              // Access flags, determine what ring this segment can be used in.
-    u8int  granularity;
-    u8int  base_high;           // The last 8 bits of the base.
+    uint16 limit_low;           // The lower 16 bits of the limit.
+    uint16 base_low;            // The lower 16 bits of the base.
+    uint8  base_middle;         // The next 8 bits of the base.
+    uint8  access;              // Access flags, determine what ring this segment can be used in.
+    uint8  granularity;
+    uint8  base_high;           // The last 8 bits of the base.
 } __attribute__((packed));
 
 typedef struct gdt_entry_struct gdt_entry_t;
@@ -33,7 +33,7 @@ typedef struct gdt_entry_struct gdt_entry_t;
 // lgdt instruction.
 struct gdt_ptr_struct
 {
-    u16int limit;               // The upper 16 bits of all selector limits.
+    uint16 limit;               // The upper 16 bits of all selector limits.
     uint base;                // The address of the first gdt_entry_t struct.
 } __attribute__((packed));
 
@@ -42,11 +42,11 @@ typedef struct gdt_ptr_struct gdt_ptr_t;
 // A struct describing an interrupt gate.
 struct idt_entry_struct
 {
-    u16int base_lo;             // The lower 16 bits of the address to jump to when this interrupt fires.
-    u16int sel;                 // Kernel segment selector.
-    u8int  always0;             // This must always be zero.
-    u8int  flags;               // More flags. See documentation.
-    u16int base_hi;             // The upper 16 bits of the address to jump to.
+    uint16 base_lo;             // The lower 16 bits of the address to jump to when this interrupt fires.
+    uint16 sel;                 // Kernel segment selector.
+    uint8  always0;             // This must always be zero.
+    uint8  flags;               // More flags. See documentation.
+    uint16 base_hi;             // The upper 16 bits of the address to jump to.
 } __attribute__((packed));
 
 typedef struct idt_entry_struct idt_entry_t;
@@ -55,7 +55,7 @@ typedef struct idt_entry_struct idt_entry_t;
 // This is in a format suitable for giving to 'lidt'.
 struct idt_ptr_struct
 {
-    u16int limit;
+    uint16 limit;
     uint base;                // The address of the first element in our idt_entry_t array.
 } __attribute__((packed));
 
@@ -147,7 +147,7 @@ static void init_gdt()
 }
 
 // Set the value of one GDT entry.
-static void gdt_set_gate(s32int num, uint base, uint limit, u8int access, u8int gran)
+static void gdt_set_gate(sint32 num, uint base, uint limit, uint8 access, uint8 gran)
 {
     gdt_entries[num].base_low    = (base & 0xFFFF);
     gdt_entries[num].base_middle = (base >> 16) & 0xFF;
@@ -231,7 +231,7 @@ static void init_idt()
     idt_flush((uint)&idt_ptr);
 }
 
-static void idt_set_gate(u8int num, uint base, u16int sel, u8int flags)
+static void idt_set_gate(uint8 num, uint base, uint16 sel, uint8 flags)
 {
     idt_entries[num].base_lo = base & 0xFFFF;
     idt_entries[num].base_hi = (base >> 16) & 0xFFFF;

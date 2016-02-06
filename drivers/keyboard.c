@@ -140,7 +140,7 @@ static void keyboard_handler(registers_t regs)
         // The handler is thus filling the process buffer and flipping
         // off the PROCESS_POLLING flag
         
-        process *ps = get_process_focus();
+        Process *ps = get_process_focus();
         if (ps->flags | PROCESS_POLLING) {
             ps->buffer = c;
             ps->flags &= ~PROCESS_POLLING;

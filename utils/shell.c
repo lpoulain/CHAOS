@@ -1,28 +1,43 @@
 #include "libc.h"
+#include "heap.h"
 #include "shell.h"
 #include "process.h"
 #include "parser.h"
-#include "floppy.h"
 #include "display.h"
 #include "display_vga.h"
 #include "gui_window.h"
+#include "disk.h"
+#include "debug.h"
+#include "debug_info.h"
+
+#define DISK_ERR_DOES_NOT_EXIST	-2
 
 extern void (*mouse_show)();
 extern void (*mouse_hide)();
 extern void stack_dump();
 extern void read_sectors();
 extern void reboot();
+extern int new_process;
+extern int polling;
+extern void context_switch();
 
+// This structure holds the information specific to a
+// shell session (command history, current directory)
 typedef struct {
-	char entry[100][BUFFER_SIZE];
-	uint entry_idx;
-} cmd_hist;
+	char cmd_history[100][BUFFER_SIZE];
+	uint cmd_history_idx;
+	uint dir_cluster;
+	DirEntry *dir_index;
+	char path[256];
+} ShellEnv;
 
-void prompt(window *win) {
-	win->action->puts(win, "CHAOS> ");
+void prompt(Window *win, ShellEnv *env) {
+	win->action->puts(win, "CHAOS");
+	win->action->puts(win, env->path);
+	win->action->puts(win, "> ");
 }
 
-void countdown(window *win) {
+void countdown(Window *win) {
 	int counter = 10;
 	char *nb = "9876543210";
 	for (int k=0; k<10; k++) {
@@ -42,11 +57,14 @@ extern uint data;
 extern uint rodata;
 extern uint bss;
 extern uint debug_info;
-//extern uint debug_line;
 extern uint end;
+extern unsigned char *kernel_debug_line;
+extern unsigned char *kernel_debug_info;
+extern unsigned char *kernel_debug_str;
+
 uint dump_mem_addr = 0;
 
-void process_command(window *win) {
+void process_command(Window *win, ShellEnv *env) {
 
 	// Clear screen
 	if (!strcmp(win->buffer, "cls")) {
@@ -54,11 +72,166 @@ void process_command(window *win) {
 		return;
 	}
 
-	// Read from the disk (work in progress)
-	if (!strcmp(win->buffer, "f")) {
-		floppy_test_read();
+	if (!strcmp(win->buffer, "debug")) {
+		if (switch_debug()) win->action->puts(win, "Debug is ON");
+		else win->action->puts(win, "Debug is off");
+
+		win->action->putcr(win);
 		return;
 	}
+
+	if (!strcmp(win->buffer, "d")) {
+		
+		return;
+	}
+
+	if (!strncmp(win->buffer, "d ", 2)) {
+		uint address = atoi_hex(win->buffer + 2);
+	    StackFrame frame;
+
+        if (debug_line_find_address((unsigned char*)address, &frame)) {
+            debug_info_find_address((unsigned char*)address, &frame);
+            printf_win(win, "[%x] %s (%s/%s at line %d)  \n", address, frame.function, frame.path, frame.filename, frame.line_number);
+        } else
+            printf_win(win, "[%x] n/a  \n", address);
+		return;
+	}
+
+	if (!strcmp(win->buffer, "ls")) {
+		disk_load_file_index();
+		disk_ls(env->dir_cluster, env->dir_index);
+
+		char long_filename[256];
+
+		char filename[13];
+		char *str;
+		uint16 skip;
+		const char *src;
+		uint16 fat_entry;
+
+		for (int idx=0; env->dir_index[idx].filename[0] != 0; idx++) {
+			// In some cases we need to skip some entries
+			// (deleted, empty, used for long filenames)
+			skip = disk_skip_n_entries(&env->dir_index[idx]);
+			if (skip > 0) {
+				idx += (skip - 1);
+				continue;
+			}
+
+			if (disk_is_directory(&env->dir_index[idx])) win->action->puts(win, "      <DIR>  ");
+			else {
+				win->action->putnb_right(win, env->dir_index[idx].size);
+				win->action->puts(win, "  ");
+			}
+
+			// If the previous entry(ies) are LFN, display the long filename
+			if (disk_has_long_filename(&env->dir_index[idx])) {
+				win->action->puts(win, disk_get_long_filename(&env->dir_index[idx]));
+			} else {
+				win->action->puts(win, env->dir_index[idx].filename);
+			}
+			win->action->putcr(win);
+
+//			disk_load_file(&dir[i], win);
+		}
+		return;
+	}
+
+
+	if (!strncmp(win->buffer, "cd ", 3)) {
+		disk_ls(env->dir_cluster, env->dir_index);
+		int result = disk_cd(win->buffer+3, env->dir_index, env->path);
+
+		if (result == DISK_ERR_DOES_NOT_EXIST) {
+			win->action->puts(win, "The directory does not exist");
+			win->action->putcr(win);
+			return;
+		}
+		
+		if (result == DISK_ERR_NOT_A_DIR) {
+			win->action->puts(win, "This is not a directory");
+			win->action->putcr(win);
+			return;
+		}
+
+		env->dir_cluster = result;
+		win->action->putcr(win);
+		return;
+	}
+
+	if (!strncmp(win->buffer, "cat ", 4)) {
+		File f;
+
+		disk_ls(env->dir_cluster, env->dir_index);
+		int result = disk_load_file(win->buffer+4, env->dir_index, &f);
+
+		if (result == DISK_ERR_DOES_NOT_EXIST) {
+			win->action->puts(win, "The file does not exist");
+			win->action->putcr(win);
+			return;
+		}
+
+		if (result == DISK_ERR_NOT_A_FILE) {
+			win->action->puts(win, "This is not a file");
+			win->action->putcr(win);
+			return;
+		}
+
+		if (result != DISK_CMD_OK) {
+			win->action->puts(win, "Error");
+			win->action->putcr(win);
+			return;
+		}
+
+		win->action->puts(win, "File: ");
+		win->action->puts(win, f.filename);
+		win->action->putcr(win);
+
+		char *start;
+		for (int i=0; i<f.info.size; i++) {
+			if (f.body[i] == 0x0A) {
+				win->action->putcr(win);
+			} else if (f.body[i] == 0x09) {
+				win->action->puts(win, "    ");
+			} else {
+				win->action->putc(win, f.body[i]);
+			}
+		}
+		win->action->putcr(win);
+
+		return;
+	}
+
+	if (!strncmp(win->buffer, "load ", 5)) {
+		File f;
+
+		disk_ls(env->dir_cluster, env->dir_index);
+		int result = disk_load_file(win->buffer+5, env->dir_index, &f);
+
+		if (result == DISK_ERR_DOES_NOT_EXIST) {
+			win->action->puts(win, "The file does not exist");
+			win->action->putcr(win);
+			return;
+		}
+
+		if (result == DISK_ERR_NOT_A_FILE) {
+			win->action->puts(win, "This is not a file");
+			win->action->putcr(win);
+			return;
+		}
+
+		if (result != DISK_CMD_OK) {
+			win->action->puts(win, "Error");
+			win->action->putcr(win);
+			return;
+		}		
+
+		win->action->puts(win, "File loaded at: ");
+		win->action->puti(win, f.body);
+		win->action->putcr(win);
+		return;
+	}
+
 
 	if (!strcmp(win->buffer, "help")) {
 		win->action->puts(win, "Commands:"); win->action->putcr(win);
@@ -81,7 +254,9 @@ void process_command(window *win) {
 
 	// Display the current stack trace
 	if (!strcmp(win->buffer, "stack")) {
+		Window *win_dbg = set_window_debug(win);
 		stack_dump();
+		set_window_debug(win_dbg);
 		return;
 	}
 
@@ -102,6 +277,8 @@ void process_command(window *win) {
 	    debug_i("data:       ", (uint)&data);
     	debug_i("bss:        ", (uint)&bss);
     	debug_i("debug_info: ", (uint)&debug_info);
+    	debug_i("debug_line: ", (uint)kernel_debug_line);
+    	debug_i("debug_str:  ", (uint)kernel_debug_str);
     	debug_i("end:        ", (uint)&end);
 		return;
 	}
@@ -147,10 +324,41 @@ void process_command(window *win) {
 		return;
 	}
 
+	debug(tokens[0].value);
+	debug(tokens[1].value);
+
+/*	// cd command
+	if (strcmp(nb_tokens == 2 &&
+		tokens[0].code == PARSE_WORD && !strncmp(tokens[0].value, "cd", 2) &&
+		tokens[1].code == PARSE_WORD) {
+
+		int result = disk_cd(tokens[1].value, env->dir_index);
+
+		if (result == DISK_ERR_DOES_NOT_EXIST) {
+			win->action->puts(win, "The directory does not exist");
+			win->action->putcr(win);
+			return;
+		}
+		
+		if (result == DISK_ERR_NOT_A_DIR) {
+			win->action->puts(win, "This is not a directory");
+			win->action->putcr(win);
+			return;
+		}
+
+		env->dir_cluster = result + 4;
+		debug_i("New dir: ", result);
+		win->action->putcr(win);
+		return;
+	}
+*/
 	// Draw box
 	if (nb_tokens == 5 &&
 		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "box") &&
-		tokens[1].code == PARSE_NUMBER && tokens[2].code == PARSE_NUMBER && tokens[3].code == PARSE_NUMBER && tokens[4].code == PARSE_NUMBER) {
+		tokens[1].code == PARSE_NUMBER &&
+		tokens[2].code == PARSE_NUMBER &&
+		tokens[3].code == PARSE_NUMBER &&
+		tokens[4].code == PARSE_NUMBER) {
 
 		draw_box((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
 
@@ -161,7 +369,10 @@ void process_command(window *win) {
 	// Draw frame
 	if (nb_tokens == 5 &&
 		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "frame") &&
-		tokens[1].code == PARSE_NUMBER && tokens[2].code == PARSE_NUMBER && tokens[3].code == PARSE_NUMBER && tokens[4].code == PARSE_NUMBER) {
+		tokens[1].code == PARSE_NUMBER &&
+		tokens[2].code == PARSE_NUMBER &&
+		tokens[3].code == PARSE_NUMBER &&
+		tokens[4].code == PARSE_NUMBER) {
 
 		draw_background((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
 		draw_frame((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
@@ -193,7 +404,7 @@ void process_command(window *win) {
 	win->action->putcr(win);
 }
 
-void process_char(unsigned char c, window *win, cmd_hist *commands) {
+void process_char(unsigned char c, Window *win, ShellEnv *env) {
 //	window *win = get_process_focus()->win;
 
 	// If no keyboard key is captured do nothing
@@ -201,19 +412,19 @@ void process_char(unsigned char c, window *win, cmd_hist *commands) {
 
 	// Up or down arrow: retreive the current command
 	if (c == 1 || c == 2) {
-		uint idx = commands->entry_idx;
+		uint idx = env->cmd_history_idx;
 		idx += (c - 1) * 2 - 1;
 		if (idx < 0) idx = 99;
 		if (idx >= 100) idx = 0;
 
-		if (commands->entry[idx][0] == 0 && win->buffer_end == 0) return;
+		if (env->cmd_history[idx][0] == 0 && win->buffer_end == 0) return;
 
 		for (int i=0; i<win->buffer_end; i++) win->action->backspace(win);
-		strcpy(win->buffer, commands->entry[idx]);
+		strcpy(win->buffer, env->cmd_history[idx]);
 		win->buffer_end = strlen(win->buffer);
 		win->action->puts(win, win->buffer);
 		win->action->set_cursor(win);
-		commands->entry_idx = idx;
+		env->cmd_history_idx = idx;
 		return;
 	}
 
@@ -231,15 +442,15 @@ void process_char(unsigned char c, window *win, cmd_hist *commands) {
 		win->action->putcr(win);
 		if (win->buffer_end != 0) {
 	
-			uint idx = commands->entry_idx;
-			strcpy(commands->entry[idx], win->buffer);
+			uint idx = env->cmd_history_idx;
+			strcpy(env->cmd_history[idx], win->buffer);
 			idx++;
 			if (idx >= 100) idx = 0;
-			commands->entry_idx = idx;
+			env->cmd_history_idx = idx;
 
-			process_command(win);
+			process_command(win, env);
 		}
-		prompt(win);
+		prompt(win, env);
 		win->action->set_cursor(win);
 		win->buffer_end = 0;
 		return;
@@ -267,45 +478,25 @@ void process_char(unsigned char c, window *win, cmd_hist *commands) {
 //	print_hex(c, 0, 75);
 }
 
-extern int new_process;
-extern int polling;
-extern void context_switch();
-
-unsigned char poll() {
-	current_process->flags |= PROCESS_POLLING;
-	char c;
-
-	for (;;) {
-		if (current_process->buffer) {
-			c = current_process->buffer;
-			current_process->buffer = 0;
-			return c;
-		}
-	}
-
-	return current_process->buffer;
-}
-
-typedef struct {
-	cmd_hist commands;
-
-} shell_data;
-
 void shell() {
-	window *win = current_process->win;
+	Window *win = current_process->win;
 	win->action->init(win, "Shell");
 
-	cmd_hist commands;
-	memset(&commands, 0, sizeof(cmd_hist));
+	// Setup the shell environment
+	ShellEnv env;
+	memset(&env, 0, sizeof(ShellEnv));
+	env.dir_index = (DirEntry*)kmalloc_a(8192, 0);
+	env.dir_cluster = 2;
+	strcpy(env.path, "");
 
-	prompt(win);
+	prompt(win, &env);
 	if (win == window_focus) win->action->set_cursor(win);
 	win->buffer_end = 0;
 
 	for (;;) {
-		unsigned char c = poll();
+		unsigned char c = getch();
 		mouse_hide();
-		process_char(c, win, &commands);
+		process_char(c, win, &env);
 		mouse_show();
 	}
 }

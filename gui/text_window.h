@@ -3,7 +3,7 @@
 
 #include "display.h"
 
-extern window text_win1;
-extern window text_win2;
+extern Window text_win1;
+extern Window text_win2;
 
 #endif

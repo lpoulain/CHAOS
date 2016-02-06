@@ -3,18 +3,18 @@
 
 typedef unsigned int   size_t;
 typedef unsigned int   uint32_t;
-typedef          int   s32int;
+typedef          int   sint32;
 typedef unsigned short uint16_t;
-typedef          short s16int;
+typedef          short sint16;
 typedef unsigned char  uint8_t;
-typedef          char  s8int;
+typedef          char  sint8;
 
 struct prd{
     uint32_t data;
     uint16_t bytes;
     uint16_t reserved;
 
-    prd() : reserved((1 << 15)) {}
+//    prd : reserved((1 << 15)) {}
 } __attribute__((packed));
 
 #define ATA_SR_BSY     0x80

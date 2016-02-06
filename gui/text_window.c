@@ -3,7 +3,7 @@
 #include "display_text.h"
 
 // Prints a carriage return on the window
-void text_putcr(window *win) {
+void text_putcr(Window *win) {
 	if (win->cursor_address == win->end_address) {
 		text_scroll(win);
 	}
@@ -13,7 +13,7 @@ void text_putcr(window *win) {
 }
 
 // Prints a character on the window
-void text_putc(window *win, char c) {
+void text_putc(Window *win, char c) {
 	if (c == '\n') {
 		text_putcr(win);
 	} else {
@@ -25,12 +25,12 @@ void text_putc(window *win, char c) {
 }
 
 // Prints a string on the window
-void text_puts(window *win, const char *text) {
+void text_puts(Window *win, const char *text) {
 	while (*text) text_putc(win, *text++);
 }
 
 // Prints an integer (in hex format) on the window
-void text_puti(window *win, uint i) {
+void text_puti(Window *win, uint i) {
 	unsigned char *addr = (unsigned char *)&i;
 	char *str = "0x00000000";
 	char *loc = str++;
@@ -51,7 +51,30 @@ void text_puti(window *win, uint i) {
 }
 
 // Prints a number on the window
-void text_putnb(window *win, int nb) {
+void text_putnb(Window *win, int nb) {
+	if (nb < 0) {
+		text_putc(win, '-');
+		nb = -nb;
+	}
+	uint nb_ref = 1000000000;
+	uint leading_zero = 1;
+	uint digit;
+
+	for (int i=0; i<=9; i++) {
+		if (nb >= nb_ref) {
+			digit = nb / nb_ref;
+			text_putc(win, '0' + digit);
+			nb -= nb_ref * digit;
+
+			leading_zero = 0;
+		} else {
+			if (!leading_zero) text_putc(win, '0');
+		}
+		nb_ref /= 10;
+	}
+}
+
+void text_putnb_right(Window *win, int nb) {
 	if (nb < 0) {
 		text_putc(win, '-');
 		nb = -nb;
@@ -75,21 +98,21 @@ void text_putnb(window *win, int nb) {
 }
 
 // When the user presses backspace
-void text_backspace(window *win) {
+void text_backspace(Window *win) {
 	// We don't want to go before the video buffer
 	if (win->cursor_address == win->start_address) return;
 	win->cursor_address -= 2;
 	*win->cursor_address = ' ';
 }
 
-void text_set_focus(window *win, window *win_unused) {
+void text_set_focus(Window *win, Window *win_unused) {
 	window_focus = win;
 	text_set_cursor(win);
 }
 
-void text_remove_focus(window *win) { }
+void text_remove_focus(Window *win) { }
 
-void text_init(window *win, const char *title) {
+void text_init(Window *win, const char *title) {
 	win->start_address = (unsigned char*)VIDEO_ADDRESS + win->top_y * 160;
 	win->end_address = (unsigned char*)VIDEO_ADDRESS + (win->bottom_y + 1) * 160;
 	win->cursor_address = win->start_address;
@@ -97,13 +120,14 @@ void text_init(window *win, const char *title) {
 }
 
 // Definition of the various windowing primitives in the text environment
-struct window_action text_window_action = {
+struct WindowAction text_window_action = {
 	.init = &text_init,
 	.cls = &text_cls,
 	.puts = &text_puts,
 	.putc = &text_putc,
 	.puti = &text_puti,
 	.putnb = &text_putnb,
+	.putnb_right = &text_putnb_right,
 	.backspace = &text_backspace,
 	.putcr = &text_putcr,
 	.set_cursor = &text_set_cursor,
@@ -112,14 +136,14 @@ struct window_action text_window_action = {
 };
 
 // We define two windows
-window text_win1 = {
+Window text_win1 = {
 	.top_y = 1,
 	.bottom_y = 12,
 	.text_color = 0x0e,
 	.action = &text_window_action
 };
 
-window text_win2 = {
+Window text_win2 = {
 	.top_y = 12,
 	.bottom_y = 24,
 	.text_color = 0x0f,

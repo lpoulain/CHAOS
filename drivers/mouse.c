@@ -6,7 +6,7 @@
 #include "display_text.h"
 #include "gui_mouse.h"
 
-void mouse_wait(u8int a_type);
+void mouse_wait(uint8 a_type);
 
 extern void (*mouse_move)(int delta_x, int delta_y, uint);
 extern void (*mouse_click)();
@@ -22,15 +22,15 @@ extern void (*mouse_unclick)();
 #define MOUSE_F_BIT  0x20
 #define MOUSE_V_BIT  0x08
 
-static u8int mouse_cycle = 0;
-static u8int  mouse_byte[3];
+static uint8 mouse_cycle = 0;
+static uint8  mouse_byte[3];
 
 /*
-static u8int mouse_cycle = 0;
-static u8int  mouse_byte[3];
+static uint8 mouse_cycle = 0;
+static uint8  mouse_byte[3];
 static uint mouse_status;
-static u8int cursor_buffer = ' ';
-static u8int cursor_color_buffer = 0;
+static uint8 cursor_buffer = ' ';
+static uint8 cursor_color_buffer = 0;
 
 static int mouse_x = 40;
 static int mouse_y = 12;
@@ -60,10 +60,10 @@ static void mouse_handler(registers_t regs) {
    int x_dir;
    int y_dir;
 
-   u8int status = inportb(MOUSE_STATUS);
+   uint8 status = inportb(MOUSE_STATUS);
    while (status & MOUSE_BBIT) 
    {
-      u8int mouse_in = inportb(MOUSE_PORT);
+      uint8 mouse_in = inportb(MOUSE_PORT);
       if (status & MOUSE_F_BIT) 
       {
          switch (mouse_cycle) 
@@ -113,20 +113,20 @@ static void mouse_handler(registers_t regs) {
    }	
 }
 
-void mouse_write(u8int write) {
+void mouse_write(uint8 write) {
    mouse_wait(1);
    outportb(MOUSE_STATUS, MOUSE_WRITE);
    mouse_wait(1);
    outportb(MOUSE_PORT, write);
 }
 
-u8int mouse_read(void) {
+uint8 mouse_read(void) {
    mouse_wait(0);
    char t = inportb(MOUSE_PORT);
    return t;
 }
 
-void mouse_wait(u8int a_type) {
+void mouse_wait(uint8 a_type) {
    uint timeout = 100000;
    if (!a_type) {
       while (--timeout) {

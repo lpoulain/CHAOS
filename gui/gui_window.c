@@ -2,7 +2,7 @@
 #include "heap.h"
 #include "display.h"
 //#include "process.h"
-#include "display_vga.h"
+#include "gui_screen.h"
 #include "gui_window.h"
 #include "gui_mouse.h"
 
@@ -29,17 +29,17 @@ int intersection(rect *rect1, rect *rect2, rect *intersect) {
 ///////////////////////////////////////////////////////////////
 // GUI Window functions
 ///////////////////////////////////////////////////////////////
-void gui_redraw_frame(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y);
+void gui_redraw_frame(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_y);
 
 // We've reached the bottom of the window, we need to scroll everything up one line
-void gui_scroll(window *win) {
+void gui_scroll(Window *win) {
 	copy_box(win->left_x+1, win->right_x-1, win->top_y + 10, win->cursor_y - 8, 8);
 	draw_box(win->left_x+1, win->right_x-1, win->cursor_y - 7, win->cursor_y);
 	win->cursor_y -= 8;
 }
 
 // Moves the cursor position to the next line (do not draw anything)
-void gui_next_line(window *win) {
+void gui_next_line(Window *win) {
 	win->cursor_x = win->left_x + 2;
 	win->cursor_y += 8;
 
@@ -52,18 +52,18 @@ void gui_next_line(window *win) {
 	if (win->cursor_y + 8 > win->bottom_y - 2) gui_scroll(win);
 }
 
-void gui_set_cursor(window *win) {
+void gui_set_cursor(Window *win) {
 	if (window_focus != win) return;
 
 	if (win->cursor_x + 8 > win->right_x - 2) gui_next_line(win);
-	draw_font(0, win->cursor_x, win->cursor_y);
+	draw_char(0, win->cursor_x, win->cursor_y);
 }
 
-void gui_remove_cursor(window *win) {
-	draw_font(' ', win->cursor_x, win->cursor_y);
+void gui_remove_cursor(Window *win) {
+	draw_char(' ', win->cursor_x, win->cursor_y);
 }
 
-void gui_draw_window_header(window *win, int focus) {
+void gui_draw_window_header(Window *win, int focus) {
 	draw_box(win->left_x+1, win->right_x-1, win->top_y+1, win->top_y+8);
 
 	if (focus) {
@@ -78,7 +78,7 @@ void gui_draw_window_header(window *win, int focus) {
 	draw_string(win->title, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
 }
 
-void gui_set_focus(window *win, window *win_old) {
+void gui_set_focus(Window *win, Window *win_old) {
 	window_focus = win;
 
 	rect to_redraw;
@@ -95,12 +95,12 @@ void gui_set_focus(window *win, window *win_old) {
 	gui_set_cursor(win);
 }
 
-void gui_remove_focus(window *win) {
+void gui_remove_focus(Window *win) {
 	gui_draw_window_header(win, 0);
 	gui_remove_cursor(win);
 }
 
-void gui_init(window *win, const char *title) {
+void gui_init(Window *win, const char *title) {
 	int i;
 
 	win->title = title;
@@ -131,7 +131,7 @@ void gui_init(window *win, const char *title) {
     gui_save_mouse_buffer();
 }
 
-void gui_cls(window *win) {
+void gui_cls(Window *win) {
 	draw_box(win->left_x+1, win->right_x-1, win->top_y+10, win->bottom_y-1);
 	win->cursor_x = win->left_x + 2;
 	win->cursor_y = win->top_y + 11;
@@ -139,7 +139,7 @@ void gui_cls(window *win) {
 	gui_set_cursor(win);
 }
 
-void gui_puts(window *win, const char *msg) {
+void gui_puts(Window *win, const char *msg) {
 	uint substring_len;
 	uint bytes_to_end;
 	const char *msg_start = msg;
@@ -169,15 +169,15 @@ void gui_puts(window *win, const char *msg) {
 	gui_set_cursor(win);
 }
 
-void gui_putc(window *win, char c) {
-	draw_font(c, win->cursor_x, win->cursor_y);
+void gui_putc(Window *win, char c) {
+	draw_char(c, win->cursor_x, win->cursor_y);
 
 	win->cursor_x += 8;
 	win->text[win->text_end++] = c;
 	gui_set_cursor(win);
 }
 
-void gui_puti(window *win, uint nb) {
+void gui_puti(Window *win, uint nb) {
 	unsigned char *addr = (unsigned char *)&nb;
 	char *str = "0x00000000";
 	char *loc = str++;
@@ -197,7 +197,7 @@ void gui_puti(window *win, uint nb) {
 	win->action->puts(win, loc);
 }
 
-void gui_putnb(window *win, int nb) {
+void gui_putnb(Window *win, int nb) {
 	if (nb < 0) {
 		win->action->putc(win, '-');
 		nb = -nb;
@@ -220,21 +220,55 @@ void gui_putnb(window *win, int nb) {
 	}
 }
 
-void gui_backspace(window *win) {
+void gui_putnb_right(Window *win, int nb) {
+	char number[12];
+	uint negative = 0;
+	number[11] = 0;
+	number[0] = ' ';
+
+	if (nb < 0) {
+		negative = 1;
+		nb = -nb;
+	}
+	uint nb_ref = 1000000000;
+	uint leading_zero = 1;
+	uint digit;
+
+	for (int i=0; i<=9; i++) {
+		if (nb >= nb_ref) {
+			digit = nb / nb_ref;
+			number[i+1] = '0' + digit;
+			nb -= nb_ref * digit;
+
+			if (!leading_zero && negative) number[i] = '-';
+			leading_zero = 0;
+		} else {
+			if (!leading_zero) number[i+1] = '0';
+			else number[i+1] = ' ';
+		}
+		nb_ref /= 10;
+	}
+
+	if (leading_zero) number[10] = '0';
+
+	gui_puts(win, number);
+}
+
+void gui_backspace(Window *win) {
 	gui_remove_cursor(win);
 	win->cursor_x -= 8;
 	win->text_end--;
 	gui_set_cursor(win);
 }
 
-void gui_putcr(window *win) {
+void gui_putcr(Window *win) {
 	gui_remove_cursor(win);
 	gui_next_line(win);
 	gui_set_cursor(win);
 }
 
 // Redraws the window frame and header - but only the part inside the box
-void gui_redraw_frame(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+void gui_redraw_frame(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
 	int i;
 
 	// Draws the top and bottom lines of the window
@@ -265,7 +299,7 @@ void gui_redraw_frame(window *win, uint left_x, uint right_x, uint top_y, uint b
 	}	
 }
 
-void gui_redraw(window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+void gui_redraw(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_y) {
 	draw_box(left_x, right_x, top_y, bottom_y);
 	gui_redraw_frame(win, left_x, right_x, top_y, bottom_y);
 
@@ -282,7 +316,7 @@ void gui_redraw(window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 			if (i+j*80 > win->text_end) break;
 
 			const unsigned char c = win->text[i + j*80];
-			if (c != 0) draw_font_inside_frame(c,
+			if (c != 0) draw_char_inside_frame(c,
 												 2 + i*8 + win->left_x, j*8 + win->top_y + 11,
 												 left_x, right_x, top_y, bottom_y);
 		}
@@ -291,13 +325,14 @@ void gui_redraw(window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 }
 
 // Definition of the various windowing primitives in the GUI environment
-struct window_action gui_window_action = {
+struct WindowAction gui_window_action = {
 	.init = &gui_init,
 	.cls = &gui_cls,
 	.puts = &gui_puts,
 	.putc = &gui_putc,
 	.puti = &gui_puti,
 	.putnb = &gui_putnb,
+	.putnb_right = &gui_putnb_right,
 	.backspace = &gui_backspace,
 	.putcr = &gui_putcr,
 	.set_cursor = &gui_set_cursor,
@@ -307,7 +342,7 @@ struct window_action gui_window_action = {
 };
 
 // We define two windows
-window gui_win1 = {
+Window gui_win1 = {
 	.left_x = 10,
 	.right_x = 400,
 	.top_y = 10,
@@ -315,7 +350,7 @@ window gui_win1 = {
 	.action = &gui_window_action
 };
 
-window gui_win2 = {
+Window gui_win2 = {
 	.left_x = 20,
 	.right_x = 630,
 	.top_y = 230,
@@ -324,8 +359,8 @@ window gui_win2 = {
 };
 
 // When the user clicks on the mouse, the focus window may change
-window *gui_handle_mouse_click(uint mouse_x, uint mouse_y) {
-	window *new_window_focus = window_focus;
+Window *gui_handle_mouse_click(uint mouse_x, uint mouse_y) {
+	Window *new_window_focus = window_focus;
 
 	do {
 		if (mouse_x >= new_window_focus->left_x &&

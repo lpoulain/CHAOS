@@ -9,7 +9,7 @@
 static int mouse_x = 320;
 static int mouse_y = 200;
 
-window *window_focus = 0;
+Window *window_focus = 0;
 
 uint window_copy_buffer[20*480];
 
@@ -215,7 +215,7 @@ void gui_mouse_unclick() {
 
 
 	// Second step: redraw the other window
-	window *other_window;
+	Window *other_window;
 	if (window_focus == &gui_win1) other_window = &gui_win2;
 	else other_window = &gui_win1;
 	rect other_window_rect = {

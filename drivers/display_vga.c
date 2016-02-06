@@ -6,7 +6,7 @@
 #include "gui_mouse.h"
 #include "gui_screen.h"
 
-window *gui_handle_mouse_click(uint mouse_x, uint mouse_y);
+Window *gui_handle_mouse_click(uint mouse_x, uint mouse_y);
 void bitarray_copy(const unsigned char *src_org, int src_offset, int src_len, unsigned char *dst_org, int dst_offset);
 
 // 640x480 monochrome display
@@ -101,7 +101,7 @@ void draw_font_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 	uint offset_left = x % 8;
 	uint offset_right = 8 - offset_left;
 	uint left_margin=0, right_margin=0, top_margin=0, bottom_margin=8;
-	u8int mask_left, mask_left_bis, mask_right;
+	uint8 mask_left, mask_left_bis, mask_right;
 
 	// The left part needs to be left out
 	if (left_x > x) left_margin = (left_x - x);
@@ -142,22 +142,13 @@ void draw_font_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 	}
 }
 
-void draw_string_inside_frame(const unsigned char *str, int x, int y, uint left_x, uint right_x, uint top_y, uint bottom_y) {
-	int len = strlen(str);
-
-	for (int i=0; i<len; i++) {
-		draw_font_inside_frame(str[i], x, y, left_x, right_x, top_y, bottom_y);
-		x += 8;
-	}
-}
-
 void draw_font(unsigned char c, uint x, uint y) {
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset1 = x % 8;
 	uint offset2 = 8 - offset1;
-	u8int mask1 = ~(0xFF >> offset1);
-	u8int mask1bis = 0xFF >> offset1;
-	u8int mask2 = ~(0xFF << offset2);
+	uint8 mask1 = ~(0xFF >> offset1);
+	uint8 mask1bis = 0xFF >> offset1;
+	uint8 mask2 = ~(0xFF << offset2);
 	uint c_idx = c;
 	for (int i=0; i<8; i++) {
 		*pixel &= mask1;
@@ -249,8 +240,8 @@ void draw_background(int left_x, int right_x, int top_y, int bottom_y) {
 //	draw_ptr((void*)start_x, 0, 0);
 //	draw_ptr((void*)start_offset, 0, 8);
 	
-	u8int mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
-	u8int bg1[2][4] = { { 0x00, 0x00, 0x00, 0x00 }, { 0x00, 0x00, 0x00, 0x00 } };
+	uint8 mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
+	uint8 bg1[2][4] = { { 0x00, 0x00, 0x00, 0x00 }, { 0x00, 0x00, 0x00, 0x00 } };
 	uint *mask1b = (uint*)&mask1;
 	uint *bg1b[2] = { (uint*)&bg1[0], (uint*)&bg1[1] };
 
@@ -272,8 +263,8 @@ void draw_background(int left_x, int right_x, int top_y, int bottom_y) {
 //	draw_ptr((void*)end_x, 0, 16);
 //	draw_ptr((void*)end_offset, 0, 24);
 
-	u8int mask2[4] = { 0xFF, 0xFF, 0xFF, 0x00 };
-	u8int bg2[2][4] = { { 0xAA, 0xAA, 0xAA, 0x00 }, { 0x55, 0x55, 0x55, 0x00 } };
+	uint8 mask2[4] = { 0xFF, 0xFF, 0xFF, 0x00 };
+	uint8 bg2[2][4] = { { 0xAA, 0xAA, 0xAA, 0x00 }, { 0x55, 0x55, 0x55, 0x00 } };
 	uint *mask2b = (uint*)&mask2;
 	uint *bg2b[2] = { (uint*)&bg2[0], (uint*)&bg2[1] };
 
@@ -346,21 +337,6 @@ void draw_frame(int left_x, int right_x, int top_y, int bottom_y) {
 	}
 }
 
-void draw_string(const unsigned char *str, int x, int y) {
-	int len = strlen(str);
-
-	for (int i=0; i<len; i++) {
-		draw_font(str[i], x, y);
-		x += 8;
-	}
-}
-
-void draw_string_n(const unsigned char *str, int x, int y, int len) {
-	for (int i=0; i<len; i++) {
-		draw_font(str[i], x, y);
-		x += 8;
-	}
-}
 
 // Fills the box with white
 void draw_box(uint left_x, uint right_x, uint top_y, uint bottom_y) {
@@ -382,7 +358,7 @@ void draw_box(uint left_x, uint right_x, uint top_y, uint bottom_y) {
 //	draw_ptr((void*)start_x, 0, 0);
 //	draw_ptr((void*)start_offset, 0, 8);
 	
-	u8int mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
+	uint8 mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
 	uint *mask1b = (uint*)&mask1;
 
 	for (i=0; i<4; i++) {
@@ -401,7 +377,7 @@ void draw_box(uint left_x, uint right_x, uint top_y, uint bottom_y) {
 //	draw_ptr((void*)end_x, 0, 16);
 //	draw_ptr((void*)end_offset, 0, 24);
 
-	u8int mask2[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+	uint8 mask2[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
 	uint *mask2b = (uint*)&mask2;
 	
 	for (i=0; i<4; i++) {
@@ -450,7 +426,7 @@ void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, uint nb_pixe
 	// of the window (which we want to fill) and outside of the
 	uint start_x = left_x / 32;
 	uint start_offset = left_x % 32;
-	u8int mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
+	uint8 mask1[4] = { 0x00, 0x00, 0x00, 0x00 };
 	uint *mask1b = (uint*)&mask1;
 
 	for (i=0; i<4; i++) {
@@ -464,7 +440,7 @@ void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, uint nb_pixe
 
 	uint end_x = right_x / 32 + 1;
 	uint end_offset = right_x % 32;
-	u8int mask2[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
+	uint8 mask2[4] = { 0xFF, 0xFF, 0xFF, 0xFF };
 	uint *mask2b = (uint*)&mask2;
 	
 	for (i=0; i<4; i++) {

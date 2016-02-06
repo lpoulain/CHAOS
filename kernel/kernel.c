@@ -22,21 +22,21 @@ void outportb (unsigned short _port, unsigned char _data)
     __asm__ __volatile__ ("outb %1, %0" : : "dN" (_port), "a" (_data));
 }
 
-void outb(u16int port, u8int value)
+void outb(uint16 port, uint8 value)
 {
     asm volatile ("outb %1, %0" : : "dN" (port), "a" (value));
 }
 
-u8int inb(u16int port)
+uint8 inb(uint16 port)
 {
-    u8int ret;
+    uint8 ret;
     asm volatile("inb %1, %0" : "=a" (ret) : "dN" (port));
     return ret;
 }
 
 void reboot()
 {
-    u8int good = 0x02;
+    uint8 good = 0x02;
     while (good & 0x02)
         good = inb(0x64);
     outb(0x64, 0xFE);
@@ -50,6 +50,7 @@ extern void init_scheduler();
 extern void init_mouse();
 extern void init_display();
 extern uint boot_flags();
+extern void init_debug();
 
 int main (uint esp) {
     // We save the first ESP pointer to have an idea of the
@@ -65,6 +66,7 @@ int main (uint esp) {
     init_descriptor_tables();
     init_mouse();
     init_keyboard();
+    init_debug();
     init_virtualmem();
     init_tasking();
     init_scheduler();

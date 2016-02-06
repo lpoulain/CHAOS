@@ -4,5 +4,13 @@
 void draw_hex(char b, int x, int y);
 void draw_hex2(char b, int x, int y);
 void draw_ptr(void *ptr, int x, int y);
+int draw_int(int nb, int x, int y);
+void draw_string(const unsigned char *str, int x, int y);
+void draw_string_n(const unsigned char *str, int x, int y, int len);
+void draw_string_inside_frame(const unsigned char *str, int x, int y, uint left_x, uint right_x, uint top_y, uint bottom_y);
+void draw_char(unsigned char, int, int);
+void draw_char_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint right_x, uint top_y, uint bottom_y);
+
+extern Window gui_debug_win;
 
 #endif

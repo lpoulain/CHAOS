@@ -3,7 +3,7 @@
 #include "display_text.h"
 
 // Sets the cursor in the screen
-void text_set_cursor(window *win) {
+void text_set_cursor(Window *win) {
 	unsigned int offset = (unsigned int)(win->cursor_address - VIDEO_ADDRESS) / 2;
 
     outportb(0x3D4, 14);
@@ -13,7 +13,7 @@ void text_set_cursor(window *win) {
 }
 
 // Scroll up the window one line
-void text_scroll(window *win) {
+void text_scroll(Window *win) {
 	int nb_characters = (win->end_address - win->start_address) / 2 - 80;
 	unsigned char *ptr = win->start_address;
 
@@ -46,7 +46,7 @@ void text_print(const char *msg, int row, int col, char color) {
 }
 
 // Clears the window
-void text_cls(window *win) {
+void text_cls(Window *win) {
 	win->cursor_address = win->start_address;
 
 	while (win->cursor_address < win->end_address) {

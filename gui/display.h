@@ -11,12 +11,12 @@
 
 #define WINDOW(win, act, ...) win->action->(win, ##__VA_ARGS__)
 
-struct window_action;
-typedef struct process_t process;
-typedef struct window_t window;
+struct WindowAction;
+typedef struct process_t Process;
+typedef struct window_t Window;
 
 typedef struct window_t {
-	u8int type;
+	uint8 type;
 
 	// Text fields
 	unsigned char *start_address;
@@ -38,45 +38,47 @@ typedef struct window_t {
 	// Common fields
 	unsigned char buffer[BUFFER_SIZE];
 	int buffer_end;	
-	struct window_action *action;
+	struct WindowAction *action;
 	const char *title;
-	process *ps;
-	window *next;
-} window;
+	Process *ps;
+	Window *next;
+} Window;
 
-extern window *window_focus;
+extern Window *window_focus;
+extern Window *window_debug;
 
 // This class is used for polymorphism
 // The action can either be for a text of a GUI window
-struct window_action {
-	void (*init) (window *, const char *);
-	void (*cls) (window *);
-	void (*puts) (window *, const char *);
-	void (*putc) (window *, char);
-	void (*puti) (window *, uint);
-	void (*putnb) (window *, int);
-	void (*backspace) (window *);
-	void (*putcr) (window *);
-	void (*set_cursor) (window *);
-	void (*set_focus) (window *, window *);
-	void (*remove_focus) (window *);
-	void (*redraw) (window *, uint, uint, uint, uint);
+struct WindowAction {
+	void (*init) (Window *, const char *);
+	void (*cls) (Window *);
+	void (*puts) (Window *, const char *);
+	void (*putc) (Window *, char);
+	void (*puti) (Window *, uint);
+	void (*putnb) (Window *, int);
+	void (*putnb_right) (Window *, int);
+	void (*backspace) (Window *);
+	void (*putcr) (Window *);
+	void (*set_cursor) (Window *);
+	void (*set_focus) (Window *, Window *);
+	void (*remove_focus) (Window *);
+	void (*redraw) (Window *, uint, uint, uint, uint);
 };
 
 uint display_mode();
-process *get_process_focus();
+Process *get_process_focus();
 void print(const char *, int, int, char);
 void print_hex(char b, int row, int col);
 void print_hex2(char b, int row, int col);
 void print_c(char c, int row, int col);
-void puts(window *win, const char *);
-void putc(window *win, char);
-void puti(window *win, uint);
-void putnb(window *win, int nb);
-void cls(window *win);
-void putcr(window *win);
-void backspace(window *win);
-void set_cursor(window *win);
+void puts(Window *win, const char *);
+void putc(Window *win, char);
+void puti(Window *win, uint);
+void putnb(Window *win, int nb);
+void cls(Window *win);
+void putcr(Window *win);
+void backspace(Window *win);
+void set_cursor(Window *win);
 void print_ptr(void *ptr, int row, int col);
 void print_int(int n, int row, int col);
 void debug_i(char *msg, uint nb);
@@ -85,7 +87,8 @@ void switch_window_focus();
 
 void mouse_move_text(int delta_x, int delta_y);
 
-void init_window(window *win, process *ps);
+void init_window(Window *win, Process *ps);
+Window *set_window_debug(Window *new);
 
 extern void (*dump_mem)(void *, int, int);
 

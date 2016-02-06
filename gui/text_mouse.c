@@ -2,8 +2,8 @@
 #include "display.h"
 #include "display_text.h"
 
-static u8int cursor_buffer = ' ';
-static u8int cursor_color_buffer = 0;
+static uint8 cursor_buffer = ' ';
+static uint8 cursor_color_buffer = 0;
 
 static int mouse_x = 40;
 static int mouse_y = 12;

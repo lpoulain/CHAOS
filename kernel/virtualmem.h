@@ -18,21 +18,21 @@ typedef struct {
   uint avail_2          : 1;
   uint avail_3          : 1;
   uint frame            : 20;
-} page_table_entry;
+} PageTableEntry;
 
 typedef struct {
-  page_table_entry pte[1024];
-} page_table;
+  PageTableEntry pte[1024];
+} PageTable;
 
 typedef struct {
   uint entry[1024];
-  page_table *tables[1024];
-} page_directory;
+  PageTable *tables[1024];
+} PageDirectory;
 
 void init_virtualmem();
-void switch_page_directory(page_directory *dir);
-page_table_entry *get_PTE(uint address, page_directory *dir, int create_if_not_exist);
+void switch_page_directory(PageDirectory *dir);
+PageTableEntry *get_PTE(uint address, PageDirectory *dir, int create_if_not_exist);
 void map_page(uint virtual_addr, uint physical_addr, int is_user, int is_writeable);
-page_directory *clone_page_directory(page_directory *src);
+PageDirectory *clone_page_directory(PageDirectory *src);
 
 #endif
