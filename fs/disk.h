@@ -32,8 +32,9 @@ void disk_get_filename(DirEntry *f, unsigned char *filename);
 uint8 disk_has_long_filename(DirEntry *f);
 char *disk_get_long_filename(DirEntry *f);
 uint8 disk_is_dir_entry_valid(DirEntry *f);
-int disk_load_file(unsigned char *filename, DirEntry *dir_index, File *f);
+int disk_load_file(const char *filename, DirEntry *dir_index, File *f);
 uint8 disk_skip_n_entries(DirEntry *f);
+uint8 disk_is_directory(DirEntry *f);
 
 #define DISK_CMD_OK				-1
 #define DISK_ERR_DOES_NOT_EXIST	-2

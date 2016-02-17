@@ -89,6 +89,7 @@ void mouse_move_text(int delta_x, int delta_y);
 
 void init_window(Window *win, Process *ps);
 Window *set_window_debug(Window *new);
+void printf_win(Window *, const char *format, ...);
 
 extern void (*dump_mem)(void *, int, int);
 

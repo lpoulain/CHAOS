@@ -1,5 +1,6 @@
 #include "libc.h"
-#include "heap.h"
+#include "kheap.h"
+#include "kernel.h"
 #include "shell.h"
 #include "process.h"
 #include "parser.h"
@@ -20,6 +21,8 @@ extern void reboot();
 extern int new_process;
 extern int polling;
 extern void context_switch();
+extern void syscall();
+extern void memory_print(Window *);
 
 // This structure holds the information specific to a
 // shell session (command history, current directory)
@@ -50,17 +53,14 @@ void countdown(Window *win) {
 	win->action->putcr(win);
 }
 
-extern token tokens[10];
-extern int nb_tokens;
-extern uint code;
-extern uint data;
-extern uint rodata;
-extern uint bss;
-extern uint debug_info;
-extern uint end;
 extern unsigned char *kernel_debug_line;
 extern unsigned char *kernel_debug_info;
 extern unsigned char *kernel_debug_str;
+extern void load_elf(const char *filename);
+
+#define asm_rdmsr(reg) ({uint low,high;asm volatile("rdmsr":"=a"(low),"=d"(high):"c"(reg));low|((uint)high<<32);})
+#define asm_wrmsr(reg,val) do{asm volatile("wrmsr"::"a"((uint)val),"d"((uint)((uint)val)),"c"(reg));}while(0)
+extern void syscall_handler2();
 
 uint dump_mem_addr = 0;
 
@@ -82,18 +82,6 @@ void process_command(Window *win, ShellEnv *env) {
 
 	if (!strcmp(win->buffer, "d")) {
 		
-		return;
-	}
-
-	if (!strncmp(win->buffer, "d ", 2)) {
-		uint address = atoi_hex(win->buffer + 2);
-	    StackFrame frame;
-
-        if (debug_line_find_address((unsigned char*)address, &frame)) {
-            debug_info_find_address((unsigned char*)address, &frame);
-            printf_win(win, "[%x] %s (%s/%s at line %d)  \n", address, frame.function, frame.path, frame.filename, frame.line_number);
-        } else
-            printf_win(win, "[%x] n/a  \n", address);
 		return;
 	}
 
@@ -137,6 +125,11 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
+
+	if (!strncmp(win->buffer, "run ", 4)) {
+		load_elf(win->buffer + 4);
+		return;
+	}
 
 	if (!strncmp(win->buffer, "cd ", 3)) {
 		disk_ls(env->dir_cluster, env->dir_index);
@@ -227,7 +220,7 @@ void process_command(Window *win, ShellEnv *env) {
 		}		
 
 		win->action->puts(win, "File loaded at: ");
-		win->action->puti(win, f.body);
+		win->action->puti(win, (uint)f.body);
 		win->action->putcr(win);
 		return;
 	}
@@ -272,14 +265,34 @@ void process_command(Window *win, ShellEnv *env) {
 
 	// Prints the main memory pointers
 	if (!strcmp(win->buffer, "mem")) {
-	    debug_i("code:       ", (uint)&code);
-	    debug_i("r/o data:   ", (uint)&rodata);
-	    debug_i("data:       ", (uint)&data);
-    	debug_i("bss:        ", (uint)&bss);
-    	debug_i("debug_info: ", (uint)&debug_info);
-    	debug_i("debug_line: ", (uint)kernel_debug_line);
-    	debug_i("debug_str:  ", (uint)kernel_debug_str);
-    	debug_i("end:        ", (uint)&end);
+	    printf_win(win, "code:       %x\n", (uint)&code);
+	    printf_win(win, "r/o data:   %x\n", (uint)&rodata);
+	    printf_win(win, "data:       %x\n", (uint)&data);
+    	printf_win(win, "bss:        %x\n", (uint)&bss);
+    	printf_win(win, "debug_info: %x\n", (uint)&debug_info);
+    	printf_win(win, "end:        %x\n", (uint)&end);
+    	printf_win(win, "heap:       %x->%x %x->%x\n", kheap.start, kheap.end, kheap.page_start, kheap.page_end);
+    	memory_print(win);
+		return;
+	}
+
+	if (!strncmp(win->buffer, "alloc ", 6)) {
+		uint nb = atoi(win->buffer + 6);
+		void *res = kmalloc_pages(nb, "Testing");
+		printf_win(win, "=> %x\n", res);
+		kheap_print(win);
+		return;
+	}
+
+	if (!strncmp(win->buffer, "free ", 5)) {
+		uint nb = atoi_hex(win->buffer + 5);
+		kfree((void*)nb);
+		kheap_print(win);
+		return;
+	}
+
+	if (!strcmp(win->buffer, "heap")) {
+		kheap_print(win);
 		return;
 	}
 
@@ -314,18 +327,22 @@ void process_command(Window *win, ShellEnv *env) {
 	}
 
 	// Parsing arithmetic operations
-	int res = parse(win->buffer);
+	Token *tokens;
+	int res = parse(win->buffer, &tokens);
 	if (res <= 0) {
 		for (int i=0; i<7-res; i++) win->action->putc(win, ' ');
 		win->action->putc(win, '^');
 		win->action->putcr(win);
 		win->action->puts(win, "Syntax error");
 		win->action->putcr(win);
+		parser_memory_cleanup(tokens);
 		return;
 	}
 
-	debug(tokens[0].value);
-	debug(tokens[1].value);
+//	parser_print_tokens(tokens);
+
+//	printf("[%s]\n", tokens[0].value);
+//	printf("[%s]\n", tokens[1].value);
 
 /*	// cd command
 	if (strcmp(nb_tokens == 2 &&
@@ -352,6 +369,7 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 */
+/*	
 	// Draw box
 	if (nb_tokens == 5 &&
 		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "box") &&
@@ -380,10 +398,13 @@ void process_command(Window *win, ShellEnv *env) {
 		win->action->putcr(win);
 		return;
 	}
+*/
 
 	int value;
-	current_process->error[0] = 0;		// reset error
-	res = is_math_formula(0, nb_tokens, &value);
+	error_reset();
+	res = is_math_formula(tokens, 0, &value);
+	parser_memory_cleanup(tokens);
+	
 	if (res > 0) {
 		win->action->putnb(win, value);
 		win->action->putcr(win);
@@ -392,8 +413,8 @@ void process_command(Window *win, ShellEnv *env) {
 		for (int i=0; i<7-res; i++) win->action->putc(win, ' ');
 		win->action->putc(win, '^');
 		win->action->putcr(win);
-		if (current_process->error[0] != 0) {
-			win->action->puts(win, current_process->error);
+		if (error_get()[0] != 0) {
+			win->action->puts(win, error_get());
 			win->action->putcr(win);
 		}
 		return;
@@ -485,7 +506,7 @@ void shell() {
 	// Setup the shell environment
 	ShellEnv env;
 	memset(&env, 0, sizeof(ShellEnv));
-	env.dir_index = (DirEntry*)kmalloc_a(8192, 0);
+	env.dir_index = (DirEntry*)kmalloc_pages(2, "Process current dir");
 	env.dir_cluster = 2;
 	strcpy(env.path, "");
 

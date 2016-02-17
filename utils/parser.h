@@ -12,12 +12,16 @@
 #define PARSE_PARENTHESE_OPEN	8
 #define PARSE_PARENTHESE_CLOSE	9
 
-typedef struct {
+typedef struct token_s {
 	uint code;
 	void *value;
 	uint position;
-} token;
+	struct token_s *next;
+} Token;
 
-uint parse(char *cmd);
-int is_math_formula(int start, int end, int *value);
+uint parse(char *cmd, Token **);
+int is_math_formula(Token *start, Token *end, int *value);
+void parser_print_tokens();
+void parser_memory_cleanup();
+
 #endif

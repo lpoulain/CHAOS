@@ -1,40 +1,9 @@
 #include "libc.h"
-#include "heap.h"
+#include "kheap.h"
 #include "disk.h"
 #include "debug_info.h"
 #include "display.h"
-
-typedef struct
-{
-    uint8  e_ident[16];
-    uint16 e_type;
-    uint16 e_machine;
-    uint e_version;
-    uint e_entry;
-    uint e_phoff;
-    uint e_shoff;
-    uint e_flags;
-    uint16 e_ehsize;
-    uint16 e_phentsize;
-    uint16 e_phnum;
-    uint16 e_shentsize;
-    uint16 e_shnum;
-    uint16 e_shstrndx;
-} ElfHeader;
-
-typedef struct
-{
-    uint sh_name;
-    uint sh_type;
-    uint sh_flags;
-    uint sh_addr;
-    uint sh_offset;
-    uint sh_size;
-    uint sh_link;
-    uint sh_info;
-    uint sh_addralign;
-    uint sh_entsize;
-} ElfSectionHeader;
+#include "elf.h"
 
 unsigned char *symbols;
 unsigned char *kernel_debug_line;
@@ -56,9 +25,12 @@ uint8 is_debug() {
     return debug_flag;
 }
 
+extern Window gui_debug_win;
+
 // Loads the kernel symbols in memory
 void init_debug() {
-    DirEntry *dir_index = (DirEntry*)kmalloc(sizeof(DirEntry), 0);
+//    DirEntry *dir_index = (DirEntry*)kmalloc(sizeof(DirEntry));
+    DirEntry *dir_index = (DirEntry*)kmalloc_pages(2, "Root dir for kernel symbols");
     File f;
     disk_load_file_index();
     disk_ls(2, dir_index);
@@ -69,6 +41,9 @@ void init_debug() {
     else
         disk_load_file("kernel.sym", dir_index, &f);
 
+//    kfree(dir_index);
+//    kheap_print(&gui_debug_win);
+    
     symbols = f.body;
     
     // Find the section table

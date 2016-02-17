@@ -4,6 +4,8 @@
 // The page_table_entry, page_table and page_directory structures are specific to the
 // i386 family of processors
 
+#include "libc.h"
+
 typedef struct {
   uint present          : 1;
   uint writeable        : 1;

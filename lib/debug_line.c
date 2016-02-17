@@ -30,7 +30,7 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame) {
 
 //	debug(files);
 
-	char *dwarf_address = 0;
+	unsigned char *dwarf_address = 0;
 	uint dwarf_op_index = 0;
 	uint dwarf_file = 1;
 	uint dwarf_line = 1;
@@ -71,7 +71,7 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame) {
 					break;
 				// DW_LNE_set_discriminator
 				case 4:
-					dwarf_discriminator = *((char **)(opcode + 3));
+					dwarf_discriminator = *((uint*)(opcode + 3));
 					break;
 
 			}
@@ -176,15 +176,15 @@ DebugLineHeader *debug_line_find_block(void *ptr) {
 	unsigned char *end = kernel_debug_line + kernel_debug_line_size;
 	int idx = 0;
 
-	while (header->length > 0 && header < end) {
+	while (header->length > 0 && (unsigned char *)header < end) {
 //		debug_i("Header at: ", header);
 //		debug_i("Length: ", header->length);
 //		debug_i("Header length: ", header->header_length);
 
 		if (header->header_length + 13 < header->length) {
-			uint *address = (char*)header + header->header_length + 13;
+			uint *address = (uint*)((char*)header + header->header_length + 13);
 //			debug_i("Address: ", *address);
-			if (*address > ptr) return old_block;
+			if (*address > (uint)ptr) return old_block;
 		}
 
 		old_block = header;

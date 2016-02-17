@@ -1,6 +1,6 @@
 #include "libc.h"
 #include "kernel.h"
-#include "heap.h"
+#include "kheap.h"
 #include "shell.h"
 #include "isr.h"
 #include "process.h"
@@ -9,6 +9,7 @@
 #include "gui_window.h"
 #include "text_window.h"
 #include "gui_mouse.h"
+#include "descriptor_tables.h"
 
 uint next_pid = 0;
 extern PageDirectory *current_page_directory;
@@ -27,6 +28,28 @@ extern uint read_eip();
 extern uint get_eip();
 
 uint nb_processes = 0;
+
+void switch_to_user_mode()
+{
+   // Set up a stack structure for switching to user mode.
+   asm volatile("  \
+     cli; \
+     mov $0x23, %ax; \
+     mov %ax, %ds; \
+     mov %ax, %es; \
+     mov %ax, %fs; \
+     mov %ax, %gs; \
+                   \
+     mov %esp, %eax; \
+     pushl $0x23; \
+     pushl %eax; \
+     pushf; \
+     pushl $0x1B; \
+     push $1f; \
+     iret; \
+   1: \
+     ");
+}
 
 // For now we're hard-coding 2 processes
 void init_processes() {
@@ -49,7 +72,8 @@ Process *get_new_process(PageDirectory *dir) {
     Process *ps = &processes[nb_processes];
     if (current_process) current_process->next = ps;
     ps->next = &processes[0];
-    memset(&ps->stack, 0, PROCESS_STACK_SIZE);
+    ps->stack = (unsigned char *)kmalloc_pages(PROCESS_STACK_SIZE / 0x1000, "Process stack");
+//    memset(ps->stack, 0, PROCESS_STACK_SIZE);
     ps->pid = nb_processes++;
     ps->esp = 0;
     ps->ebp = 0;
@@ -70,7 +94,10 @@ void init_tasking()
     current_process = get_new_process(current_page_directory);
 
     // Relocate the stack so we know where it is.
-    move_stack((char*)&current_process->eax, 0x2000);
+//    move_stack((char*)&current_process->eax, 0x2000);
+    move_stack((unsigned char*)current_process->stack + PROCESS_STACK_SIZE, 0x2000);
+//    set_kernel_stack((char*)current_process->esp);
+    set_kernel_stack((void*)&current_process->eip);
 
     // Reenable interrupts.
     asm volatile("sti");
@@ -113,6 +140,7 @@ void move_stack(void *new_stack_start, uint size)
   debug_i("New ESP: ", new_stack_pointer);
   debug_i("New EBP: ", new_base_pointer);
 */
+//  printf("Stack: %x ->%x\n", (uint)new_stack_start, ((uint)new_stack_start-PROCESS_STACK_SIZE));
   // Copy the stack.
   memcpy((void*)new_stack_pointer, (void*)old_stack_pointer, initial_esp-old_stack_pointer);
 
@@ -177,6 +205,8 @@ void copy_stack(void *new_stack_start, void *old_stack_start)
   debug_i("New ESP: ", new_stack_pointer);
   debug_i("New EBP: ", new_base_pointer);
 */
+//  printf("Stack: %x ->%x\n", (uint)new_stack_start, ((uint)new_stack_start-PROCESS_STACK_SIZE));
+
   // Copy the stack.
   memcpy((void*)new_stack_pointer, (void*)old_stack_pointer, PROCESS_STACK_SIZE);
 
@@ -258,6 +288,8 @@ void switch_process()
     esp_global = current_process->esp;
     ebp_global = current_process->ebp;
     current_page_directory = current_process->page_dir;
+    set_kernel_stack((void*)&current_process->eip);
+
 /*
     debug_i("Switch to ESP: ", esp_global);
     debug_i("EBP: ", ebp_global);
@@ -297,7 +329,8 @@ int fork()
     Process *new_process = get_new_process(directory);
 
     // Copy the stack of the parent process to the child process
-    copy_stack((void*)&new_process->eax, (void*)&current_process->eax);
+//    copy_stack((void*)&new_process->eax, (void*)&current_process->eax);
+    copy_stack((void*)(new_process->stack + PROCESS_STACK_SIZE), (void*)(current_process->stack + PROCESS_STACK_SIZE));
 
     // This will be the entry point for the new process.
     uint eip = get_eip();
@@ -319,7 +352,7 @@ int fork()
     uint ebp; asm volatile("mov %%ebp, %0" : "=r"(ebp));
 
     // Because we have a different stack, we need to use the relative values for ESP and EBP
-    uint stack_offset = (uint)&new_process->stack - (uint)&current_process->stack;
+    uint stack_offset = (uint)new_process->stack - (uint)current_process->stack;
     new_process->esp = esp + stack_offset;
     new_process->ebp = ebp + stack_offset;
     new_process->eip = eip;
@@ -348,5 +381,14 @@ int getpid()
 }
 
 void error(const char *msg) {
-    strcpy(current_process->error, msg);
+    char *error = (char*)&current_process->error;
+    strcpy(error, msg);
+}
+
+void error_reset() {
+    current_process->error[0] = 0;
+}
+
+const char *error_get() {
+    return (const char*)&current_process->error;
 }

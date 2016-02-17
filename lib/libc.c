@@ -227,12 +227,31 @@ void debug(char *msg) {
 void C_stack_dump(void *esp, void *ebp) {
     if (is_debug()) switch_debug();
 
-    printf("ESP: %x\n", (uint)esp);
-    printf("EBP: %x\n", (uint)ebp);
+    printf("ESP: %x, EBP: %x\n", (uint)esp, (uint)ebp);
+    printf("Kernel stack:  %x-%x\n", (uint)&current_process->kernel_stack, (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE);
+    printf("Process stack: %x-%x\n", (uint)current_process->stack, (uint)current_process->stack + PROCESS_STACK_SIZE);
+
+    uint cs;
+    asm volatile("mov %%cs, %0" : "=r"(cs));
+
 //    dump_mem(esp, 320, 1);
     uint ptr = (uint)esp;
-    uint stack_start = (uint)&current_process->stack;
-    uint stack_end = (uint)&current_process->stack + PROCESS_STACK_SIZE;
+    uint stack_start, stack_end;
+    if (cs == 8) {
+        stack_start = (uint)&current_process->kernel_stack;
+        stack_end = (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE;
+    }
+    else {
+        stack_start = (uint)current_process->stack;
+        stack_end = (uint)current_process->stack + PROCESS_STACK_SIZE;
+    }
+
+//        stack_start = (uint)current_process->stack;
+//        stack_end = (uint)current_process->stack + PROCESS_STACK_SIZE;
+
+//    stack_start = (uint)esp;
+//    stack_end = (uint)ebp + 0x100;
+
     uint fct_ptr, nb_lines, zeros;
     uint8 *code_ptr;
     StackFrame frame;
@@ -249,6 +268,9 @@ void C_stack_dump(void *esp, void *ebp) {
 //        debug_i("Stack: ", fct_ptr);
         ptr = (uint)(*(uint*)ptr);
     }
+
+//    dump_mem(esp, 320, 14);
+//    for (;;);    
 }
 
 char ascii[256] = {

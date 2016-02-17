@@ -1,5 +1,6 @@
 #include "libc.h"
-#include "heap.h"
+#include "kheap.h"
+#include "kernel.h"
 #include "virtualmem.h"
 #include "display.h"
 #include "isr.h"
@@ -10,7 +11,7 @@
 // The current page directory;
 PageDirectory *current_page_directory=0;
 
-void print_page_directory(PageDirectory *);
+void print_page_directory(PageDirectory *, Window *);
 extern void copy_physical_page(uint, uint);
 extern void stack_dump();
 
@@ -23,9 +24,6 @@ uint nb_frames;
 // This page is used whenever someone tries to access a page which
 // is not mapped or forbidden
 void *forbidden_page;
-
-// Defined in heap.c
-extern uint next_memory_block;
 
 
 static void page_fault(registers_t reg);
@@ -85,7 +83,7 @@ void map_to_first_available(uint virtual_addr, int is_user, int is_writeable) {
 
     // If there isn't any, we're out of memory
     if (frame == -1) {
-        debug_i("Memory full: ", next_memory_block);
+        printf("Memory full");
         for (;;);
     }
 
@@ -131,7 +129,7 @@ uint get_PTE_val(uint address) {
 // Maps a page to forbidden_page when someone shouldn't
 // have access to that page
 void map_forbidden(uint virtual_addr) {
-    map_page(virtual_addr, (uint)forbidden_page, 0, 0);
+    map_page(virtual_addr, (uint)forbidden_page, 1, 0);
 }
 
 PageTableEntry *get_PTE(uint address, PageDirectory *dir, int create_if_not_exist) {
@@ -148,8 +146,8 @@ PageTableEntry *get_PTE(uint address, PageDirectory *dir, int create_if_not_exis
     if (!create_if_not_exist) return 0;
 
     // Allocate a new page table (= 1024 PTE)
-    uint physical_address;
-    PageTable *pt = (PageTable *)kmalloc_a(sizeof(PageTable), &physical_address);
+    PageTable *pt = (PageTable *)kmalloc_pages(sizeof(PageTable) / 0x1000, "VM Page table");
+    uint physical_address = (uint)pt;
 //    debug_i("New page table: ", (uint)pt);
     memset(pt, 0, sizeof(PageTable));
 
@@ -187,31 +185,51 @@ void init_virtualmem()
     // Determines the number of RAM pages (i.e. frames) given the
     // amount of RAM and initialized the frame bitmap
     nb_frames = RAM_end_page / 0x1000;
-    frame_bitmap = (uint*)kmalloc(nb_frames / 8, 0);
+    frame_bitmap = (uint*)kmalloc(nb_frames / 8);
     memset(frame_bitmap, 0, nb_frames / 8);
 
     // Initializes the forbidden page
-    forbidden_page = (void*)kmalloc_a(4096, 0);
+    forbidden_page = kmalloc_pages(1, "Forbidden page");
     for (int i=0; i<23; i++) memcpy(forbidden_page + i*176, forbidden_page_motif, 176);
     memcpy(forbidden_page + 4048, forbidden_page_motif, 48);
 
     // Create the kernel page directory
-    kernel_page_directory = (PageDirectory*)kmalloc_a(sizeof(PageDirectory), 0);
+    kernel_page_directory = (PageDirectory*)kmalloc_pages(sizeof(PageDirectory) / 0x1000, "VM Page directory");
     memset(kernel_page_directory, 0, sizeof(PageDirectory));
     current_page_directory = kernel_page_directory;
 
     // Map the whole memory (right now, virtual mem = physical mem)
     // Note that we map beyond the current end of the heap
     // Because we also map future heap
-    addr = 0;
-    while (addr < next_memory_block + 0x80000 && addr < 0x1000000)
+    
+    // Video buffer (text and VGA): user, writeable
+    for (addr = 0x10000; addr < 0xC0000; addr += 0x1000) {
+        map_page(addr, addr, 1, 1);
+    }
+
+    // Code and rodata: user, readonly
+    for (addr = (uint)&code; addr < (uint)&data; addr += 0x1000) {
+        map_page(addr, addr, 1, 0);
+    }
+
+    // data, bss: user, writeable
+    for (addr = (uint)&data; addr < (uint)&debug_info; addr += 0x1000) {
+        map_page(addr, addr, 1, 1);
+    }
+
+    // Kernel heap: user, writeable
+    for (addr = kheap.start; addr < kheap.page_end; addr += 0x1000) {
+        map_page(addr, addr, 1, 1);
+    }
+
+/*    while (addr < 0x1000000)
     {
         // Kernel code is readable but not writeable from userspace.
         map_page(addr, addr, 1, 1);
 //        map_to_first_available(addr, 1, 1);
 //        alloc_frame( get_page(addr, 1, kernel_page_directory), 0, 0);
         addr += 0x1000;
-    }
+    }*/
 
     // Before we enable paging, we must register our page fault handler.
     register_interrupt_handler(14, &page_fault);
@@ -243,7 +261,8 @@ void switch_page_directory(PageDirectory *dir)
 static PageTable *clone_page_table(PageTable *src, uint *physAddr)
 {
     // Make a new page table, which is page aligned.
-    PageTable *dst = (PageTable*)kmalloc_a(sizeof(PageTable), physAddr);
+    PageTable *dst = (PageTable*)kmalloc_pages(sizeof(PageTable) / 0x1000, "VM Page table");
+    *physAddr = (uint)dst;
     // Ensure that the new table is blank.
     memset(dst, 0, sizeof(PageTable));
 
@@ -271,9 +290,9 @@ static PageTable *clone_page_table(PageTable *src, uint *physAddr)
 
 PageDirectory *clone_page_directory(PageDirectory *src)
 {
-    uint phys;
     // Make a new page directory and obtain its physical address.
-    PageDirectory *dst = (PageDirectory*)kmalloc_a(sizeof(PageDirectory), &phys);
+    PageDirectory *dst = (PageDirectory*)kmalloc_pages(sizeof(PageDirectory) / 0x1000, "VM Page directory");
+    uint phys = (uint)dst;
     // Ensure that it is blank.
     memset(dst, 0, sizeof(PageDirectory));
 
@@ -304,6 +323,7 @@ PageDirectory *clone_page_directory(PageDirectory *src)
 }
 
 // Debug function that prints the contents of a page directory
+/*
 void print_page_directory(PageDirectory *dir) {
     debug_i("Page directory at: ", (uint)dir);
     for (int i=0; i<3; i++) {
@@ -328,6 +348,70 @@ void print_page_directory(PageDirectory *dir) {
         }
     }
 }
+*/
+
+#define DIR_MAPPED      1
+#define DIR_WRITEABLE   2
+#define DIR_USER        4
+
+void print_page_directory_status(uint *status, uint *new_status, uint *address, uint new_address, Window *win) {
+    if (*new_status != *status) {
+        printf_win(win, "%x -> %x ", *address, new_address);
+        if (*status & DIR_MAPPED) {
+            if (*status & DIR_WRITEABLE) printf_win(win, "Read/Write "); else printf_win(win, "Read       ");
+            if (*status & DIR_USER) printf_win(win, "User"); else printf_win(win, "Kernel");
+        }
+        else printf_win(win, "-");
+        printf_win(win, "\n");
+
+        *status = *new_status;
+        *address = new_address;
+    }
+}
+
+void print_page_directory(PageDirectory *dir, Window *win) {
+    uint status = 0, new_status;
+    uint address = 0, new_address;
+
+    for (int i=0; i<1024; i++) {
+        new_address = i * 1024 * 0x1000;
+
+        if (dir->entry[i] == 0) {
+            new_status = 0;
+            print_page_directory_status(&status, &new_status, &address, new_address, win);
+            continue;
+        }
+
+        PageTable *pt = (PageTable *)(dir->entry[i] & 0xFFFFF000);
+
+        for (int j=0; j<1024; j++) {
+            PageTableEntry *pte = &(pt->pte[j]);
+
+            if (pte->frame == 0) {
+                new_status = 0;
+                print_page_directory_status(&status, &new_status, &address, new_address, win);
+                new_address += 0x1000;
+                continue;
+            }
+
+            new_status = 0;
+            if (pte->present) new_status |= DIR_MAPPED;
+            if (pte->writeable) new_status |= DIR_WRITEABLE;
+            if (pte->user_access) new_status |= DIR_USER;
+            print_page_directory_status(&status, &new_status, &address, new_address, win);
+
+            new_address += 0x1000;
+        }
+    }
+
+    new_address = 0xFFFFFFFF;
+    new_status = 0xFFFFFFFF;
+    print_page_directory_status(&status, &new_status, &address, new_address, win);
+}
+
+void memory_print(Window *win) {
+    print_page_directory(current_page_directory, win);
+}
 
 // Handler called whenever a page fault happens, i.e. the program tried to access an address
 // that is either not mapped yet or mapped to a restricted address
@@ -348,15 +432,16 @@ static void page_fault(registers_t regs)
     int id = regs.err_code & 0x10;          // Caused by an instruction fetch?
 
     // Output an error message.
-    debug("Page fault! ( ");
-    if (present) {debug("present ");}
-    if (rw) {debug("read-only ");}
-    if (us) {debug("user-mode ");}
-    if (reserved) {debug("reserved ");}
+    printf("Page fault! %x %x ( ", regs.esp, regs.ebp);
+    if (present) {printf("present ");}
+    if (rw) {printf("read-only ");}
+    if (us) {printf("user-mode ");}
+    if (reserved) {printf("reserved ");}
     printf(") at [%x] \n", faulting_address);
 
-    stack_dump();
-
+//    stack_dump();
+    C_stack_dump((void*)regs.esp, (void*)regs.ebp);
+//    for (;;);
     // Maps to the forbidden page
     map_forbidden(faulting_address & 0xFFFFF000);
 //    map_to_first_available(faulting_address & 0xFFFFF000, 1, 1);

@@ -48,6 +48,10 @@ kernel_v.sym: kernel_v.elf
 	./objcopy --only-keep-debug kernel_v.elf kernel_v.sym
 	./objdump -g kernel_v.sym > symbols.txt >& /dev/null
 
+echo: echo.c
+	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding $(INCLUDE) -g -c $< -o echo.o
+	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -q -o echo echo.o
+
 clean:
 	rm -rf boot.bin
 	rm -rf kernel.bin

@@ -1,5 +1,6 @@
 #include "libc.h"
-#include "heap.h"
+#include "kheap.h"
+#include "kernel.h"
 #include "fat12.h"
 #include "display.h"
 #include "disk.h"
@@ -23,7 +24,7 @@ uint8 disk_skip_n_entries(DirEntry *f) {
 	return 0;
 }
 
-DirEntry *find_dir_entry(unsigned char *filename_requested, DirEntry *dir_index) {
+DirEntry *find_dir_entry(const char *filename_requested, DirEntry *dir_index) {
 	int idx = 0, long_filename_idx;
 	uint8 skip;
 
@@ -110,14 +111,14 @@ char *disk_get_long_filename(DirEntry *f) {
 	return ((char*)f) + 2;
 }
 
-int disk_load_file(unsigned char *filename, DirEntry *dir_index, File *f) {
+int disk_load_file(const char *filename, DirEntry *dir_index, File *f) {
 	DirEntry *entry = find_dir_entry(filename, dir_index);
 	
 	if (entry == 0) 				return DISK_ERR_DOES_NOT_EXIST;
 	if (disk_is_directory(entry)) 	return DISK_ERR_NOT_A_FILE;
 
 	if (entry->size > 0) {
-		f->body = (char*)kmalloc_a( ((entry->size / 8192) + 1) * 8192, 0);
+		f->body = (char*)kmalloc_pages( ((entry->size / 8192) + 1) * 2, "File");
 		FAT12_read_file(entry, f->body);
 	}
 

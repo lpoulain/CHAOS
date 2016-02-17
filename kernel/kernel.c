@@ -2,13 +2,14 @@
 
 #include "libc.h"
 #include "kernel.h"
-#include "heap.h"
+#include "kheap.h"
 #include "virtualmem.h"
 #include "keyboard.h"
 #include "display.h"
 #include "shell.h"
 #include "process.h"
 #include "descriptor_tables.h"
+#include "syscall.h"
 
 unsigned char inportb (unsigned short _port)
 {
@@ -43,24 +44,21 @@ void reboot()
 }
 
 uint initial_esp;
-extern uint code;
-extern uint bss;
-extern uint end;
 extern void init_scheduler();
 extern void init_mouse();
 extern void init_display();
 extern uint boot_flags();
 extern void init_debug();
+extern void jump_usermode();
+extern void init_syscalls();
 
 int main (uint esp) {
     // We save the first ESP pointer to have an idea of the
     // initial process base pointer
     initial_esp = esp;
 
-//    debug_i("code: ", (uint)&code);
-//    debug_i("bss:  ", (uint)&bss);
-//    debug_i("end:  ", (uint)&end);
-    init_heap();
+    // We are initializing the heap
+    init_kheap();
     init_display(boot_flags());
     init_processes();
     init_descriptor_tables();
@@ -68,12 +66,15 @@ int main (uint esp) {
     init_keyboard();
     init_debug();
     init_virtualmem();
+    init_syscalls();
     init_tasking();
     init_scheduler();
 
     // Launch a new process
     int ret = fork();
     // Because we have two processes, this line will be called twice
+
+    jump_usermode();
     shell();
 
     return 0;

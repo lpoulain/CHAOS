@@ -21,7 +21,7 @@ static char *DW_FORM_name[33] = {
 
 typedef struct {
 	char *name;
-	char *low_pc;
+	unsigned char *low_pc;
 	uint high_pc;
 } FunctionRange;
 
@@ -40,19 +40,19 @@ typedef struct __attribute__((packed)) {
 #define CHECK_VALID_DIE(ptr) \
     if (ptr < kernel_debug_info || ptr > kernel_debug_info + kernel_debug_info_size) {	\
     	printf("ERROR: DIE pointer outside of range: %x\n", ptr);							\
-    	return 0;																		\
+    	return;																		\
     }
 
 #define CHECK_VALID_SCHEMA(ptr)	\
     if (ptr < kernel_debug_abbrev || ptr > kernel_debug_abbrev + kernel_debug_abbrev_size) {	\
     	printf("ERROR: schema pointer outside of range: %x\n", ptr);								\
-    	return 0;																				\
+    	return;																				\
     }
 
 #define CHECK_VALID_ATTRIBUTE(ptr) 								\
     if (*ptr < 0 || *ptr > 0x20) {								\
     	printf("ERROR: invalid attribute number (%d). Schema: %x\n", *ptr, ptr);	\
-    	return 0;												\
+    	return;												\
     }
 
 int debug_info_find_address(void *ptr, StackFrame *frame) {
@@ -60,7 +60,7 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 
 	frame->function = "?";
 	for (int i=0; i<nb_function_ranges; i++) {
-		if (ptr >= functionRanges[i].low_pc && ptr < functionRanges[i].low_pc + functionRanges[i].high_pc) {
+		if ((unsigned char *)ptr >= functionRanges[i].low_pc && (unsigned char *)ptr < functionRanges[i].low_pc + functionRanges[i].high_pc) {
 			frame->function = functionRanges[i].name;
 //			printf("Found it: %s", functionRanges[i].name);
 			return 1;
@@ -160,8 +160,8 @@ void debug_info_load() {
 						if (*schema == DW_FORM_string) functionRanges[nb_function_ranges].name = die;
 						else functionRanges[nb_function_ranges].name = kernel_debug_str + *(uint*)die;
 					}
-					if (*(schema-1) == DW_AT_low_pc) functionRanges[nb_function_ranges].low_pc = *(uint*)die;
-					if (*(schema-1) == DW_AT_high_pc) functionRanges[nb_function_ranges].high_pc = *(uint*)die;
+					if (*(schema-1) == DW_AT_low_pc) functionRanges[nb_function_ranges].low_pc = *(unsigned char **)die;
+					if ((uint)*(schema-1) == DW_AT_high_pc) functionRanges[nb_function_ranges].high_pc = *(uint*)die;
 				}
 
 				if (DW_FORM_size[*schema] > 0) {

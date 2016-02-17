@@ -40,7 +40,11 @@ void draw_char_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 }
 
 void draw_hex(char b, int x, int y) {
-	char* str = "0x00"; //placeholder for size
+	char str_[5];
+	char *str = (char*)&str_;
+	str[0] = '0';
+	str[1] = 'x';
+	str[4] = 0;	
 	char* loc = str++; //offset since beginning has 0x
 	
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
@@ -56,8 +60,10 @@ void draw_hex(char b, int x, int y) {
 
 // Prints a character in hex format, without the "0x"
 void draw_hex2(char b, int x, int y) {
-	char* str = "00"; //placeholder for size
-	char* loc = str; //offset since beginning has 0x
+	char str_[3];
+	char *str = (char*)&str_;
+	str[2] = 0;	
+	char* loc = str;
 	
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
@@ -74,8 +80,11 @@ void draw_hex2(char b, int x, int y) {
 // row and column on the screen
 void draw_ptr(void *ptr, int x, int y) {
 	unsigned char *addr = (unsigned char *)&ptr;
-	char *str = "0x00000000";
-	char *loc = str++;
+	char str_[11];
+	char *str = (char*)&str_;
+	str[0] = '0';
+	str[1] = 'x';
+	str[10] = 0;	char *loc = str++;
 
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
@@ -158,9 +167,6 @@ void gui_debug_set_focus(Window *win, Window *win_old) { }
 void gui_debug_remove_focus(Window *win) { }
 
 void gui_debug_init(Window *win, const char *title) {
-/*	win->text = (char*)kmalloc(4800, 0);
-	memset(win->text, 0, 4800);
-	win->text_end = 0;*/
 }
 
 void gui_debug_cls(Window *win) {
@@ -207,7 +213,11 @@ void gui_debug_putc(Window *win, char c) {
 
 void gui_debug_puti(Window *win, uint nb) {
 	unsigned char *addr = (unsigned char *)&nb;
-	char *str = "0x00000000";
+	char str_[11];
+	char *str = (char*)&str_;
+	str[0] = '0';
+	str[1] = 'x';
+	str[10] = 0;
 	char *loc = str++;
 
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};

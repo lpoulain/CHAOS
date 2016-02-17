@@ -1,6 +1,7 @@
 #include "libc.h"
-#include "heap.h"
+#include "kheap.h"
 #include "display.h"
+#include "display_vga.h"
 //#include "process.h"
 #include "gui_screen.h"
 #include "gui_window.h"
@@ -36,6 +37,9 @@ void gui_scroll(Window *win) {
 	copy_box(win->left_x+1, win->right_x-1, win->top_y + 10, win->cursor_y - 8, 8);
 	draw_box(win->left_x+1, win->right_x-1, win->cursor_y - 7, win->cursor_y);
 	win->cursor_y -= 8;
+
+	memcpy(win->text + 80, win->text, BUFFER_SIZE - 80);
+	win->text_end -= 80;
 }
 
 // Moves the cursor position to the next line (do not draw anything)
@@ -104,7 +108,7 @@ void gui_init(Window *win, const char *title) {
 	int i;
 
 	win->title = title;
-	win->text = (char*)kmalloc(4800, 0);
+	win->text = (char*)kmalloc(4800);
 	memset(win->text, 0, 4800);
 	win->text_end = 0;
 
@@ -179,8 +183,13 @@ void gui_putc(Window *win, char c) {
 
 void gui_puti(Window *win, uint nb) {
 	unsigned char *addr = (unsigned char *)&nb;
-	char *str = "0x00000000";
-	char *loc = str++;
+	char str_[11];
+	char *str = (char*)&str_;
+	str[0] = '0';
+	str[1] = 'x';
+	str[10] = 0;
+
+	char *loc = str+1;
 
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
@@ -190,11 +199,11 @@ void gui_puti(Window *win, uint nb) {
 		unsigned char b = *addr--;
 		int u = ((b & 0xf0) >> 4);
 		int l = (b & 0x0f);
-		*++str = key[u];
-		*++str = key[l];
+		*++loc = key[u];
+		*++loc = key[l];
 	}
 
-	win->action->puts(win, loc);
+	win->action->puts(win, str);
 }
 
 void gui_putnb(Window *win, int nb) {
@@ -343,8 +352,8 @@ struct WindowAction gui_window_action = {
 
 // We define two windows
 Window gui_win1 = {
-	.left_x = 10,
-	.right_x = 400,
+	.left_x = 210,
+	.right_x = 600,
 	.top_y = 10,
 	.bottom_y = 200,
 	.action = &gui_window_action

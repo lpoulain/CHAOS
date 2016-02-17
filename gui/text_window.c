@@ -32,7 +32,11 @@ void text_puts(Window *win, const char *text) {
 // Prints an integer (in hex format) on the window
 void text_puti(Window *win, uint i) {
 	unsigned char *addr = (unsigned char *)&i;
-	char *str = "0x00000000";
+	char str_[11];
+	char *str = (char*)&str_;
+	str[0] = '0';
+	str[1] = 'x';
+	str[10] = 0;
 	char *loc = str++;
 
 	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};

@@ -3,9 +3,6 @@
 #include "process.h"
 #include "heap.h"
 
-token tokens[10];
-int nb_tokens;
-
 int atoi_substr(char *str, int start, int end)
 {
     int res = 0; // Initialize result
@@ -21,13 +18,23 @@ int atoi_substr(char *str, int start, int end)
 
 #define NEXT_WORD while ( (c == ' ' || c == '\t' ||c == '\n') && c != 0 ) c = cmd[++cmd_pos]
 
-uint parse(char *cmd) {
+Token **parser_new_token(Token **tokens, uint code, uint position, char *value) {
+	(*tokens) = (Token*)malloc(sizeof(Token));
+	(*tokens)->code = code;
+	(*tokens)->position = position;
+	(*tokens)->value = value;
+	(*tokens)->next = 0;
+
+	return &((*tokens)->next);
+}
+
+uint parse(char *cmd, Token **tokens) {
 	int parse_state = PARSE_UNDEFINED;
 	int cmd_pos = 0, token_start, token_end;
-	nb_tokens = 0;
 
 	char c = cmd[cmd_pos];
 	char *word;
+	Token *token = *tokens;
 
 	NEXT_WORD;
 
@@ -37,9 +44,7 @@ uint parse(char *cmd) {
 			token_start = cmd_pos;
 			c = cmd[++cmd_pos];
 			while (c >= '0' && c <= '9' && c != 0) c = cmd[++cmd_pos];
-			tokens[nb_tokens].code = PARSE_NUMBER;
-			tokens[nb_tokens].position = token_start;
-			tokens[nb_tokens++].value = (char*)atoi_substr(cmd, token_start, cmd_pos-1);
+			tokens = parser_new_token(tokens, PARSE_NUMBER, token_start, (char*)atoi_substr(cmd, token_start, cmd_pos-1));
 
 			if (c != ' ' && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
 		}
@@ -49,45 +54,37 @@ uint parse(char *cmd) {
 			c = cmd[++cmd_pos];
 			while (((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '_')) && c != 0) c = cmd[++cmd_pos];
 
-			word = (char *)kmalloc(cmd_pos - token_start, 0);
+			word = (char *)malloc(cmd_pos - token_start + 1);
 			strncpy(word, cmd + token_start, cmd_pos - token_start);
 			word[cmd_pos - token_start] = 0;
 
-			tokens[nb_tokens].code = PARSE_WORD;
-			tokens[nb_tokens].position = token_start;
-			tokens[nb_tokens++].value = word;
+			tokens = parser_new_token(tokens, PARSE_WORD, token_start, word);
 
 			if (c != ' ' && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
 		}
 		// +
 		else if (c == '+') {
-			tokens[nb_tokens].code = PARSE_PLUS;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_PLUS, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else if (c == '-') {
-			tokens[nb_tokens].code = PARSE_MINUS;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_MINUS, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else if (c == '*') {
-			tokens[nb_tokens].code = PARSE_MULT;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_MULT, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else if (c == '/') {
-			tokens[nb_tokens].code = PARSE_DIV;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_DIV, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else if (c == '(') {
-			tokens[nb_tokens].code = PARSE_PARENTHESE_OPEN;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_PARENTHESE_OPEN, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else if (c == ')') {
-			tokens[nb_tokens].code = PARSE_PARENTHESE_CLOSE;
-			tokens[nb_tokens++].position = cmd_pos;
+			tokens = parser_new_token(tokens, PARSE_PARENTHESE_CLOSE, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
 		else return -cmd_pos;
@@ -127,11 +124,12 @@ int operation(int val1, int op, int val2, int *result) {
 // Returns a positive number if the formula is valid
 // 0 => not a valid formula
 // Negative number: the character where the error is found
-int is_math_formula(int start, int end, int *value) {
+int is_math_formula(Token *start, Token *end, int *value) {
 	// Empty equation => NOT a valid formula
-	if (start >= end) return 0;
+	if (start == end) return 0;
 
-	int val1, val2, idx = start, old_idx, res;
+	int val1, val2, res;
+	Token *token = start, *old_token1, *old_token2;
 
 	// We need to make sure * and / (major operations) take precedence over
 	// + and - (minor operations), no matter what the order
@@ -142,55 +140,60 @@ int is_math_formula(int start, int end, int *value) {
 	// and a minor operations accumulator that sums/substracts all the values from the major op groups
 	int accum_minor = 0, accum_major = 1, major_op = PARSE_MULT, minor_op = PARSE_PLUS, op=0;
 
-	while (idx < end) {
+	while (token != end) {
 
-		// Get the next "number" (parenthese or otherwise)
+		// Exmine the token (parenthese or otherwise)
 
 		// The beginning is a valid parenthesis
-		if (tokens[idx].code == PARSE_PARENTHESE_OPEN) {
+		if (token->code == PARSE_PARENTHESE_OPEN) {
 			int nb_parenth = 1;
-			old_idx = idx;
-			idx++;
-			while (nb_parenth > 0 && idx < end) {
-				if (tokens[idx].code == PARSE_PARENTHESE_OPEN) nb_parenth++;
-				if (tokens[idx].code == PARSE_PARENTHESE_CLOSE) nb_parenth--;
+			old_token1 = token;
+			token = token->next;
+			while (nb_parenth > 0 && token != end) {
+				if (token->code == PARSE_PARENTHESE_OPEN) nb_parenth++;
+				if (token->code == PARSE_PARENTHESE_CLOSE) nb_parenth--;
 				if (nb_parenth < 0) {
 					error("Too many )'s");
-					return -tokens[idx].position;
+					return -token->position;
 				}
-				idx++;
+				old_token2 = token;
+				token = token->next;
 			}
 			if (nb_parenth > 0) {
 				error("Missing a )");
-				return -tokens[idx-1].position;
+				return -old_token2->position;
 			}
 
 			// (...) is not a valid equation
-			res = is_math_formula(old_idx+1, idx-1, value); 
-			if (res <= 0) return res;
+			res = is_math_formula(old_token1->next, old_token2, value); 
+			if (res <= 0) {
+				error("Not a math formula");
+				return res;
+			}
 		}
 
 		// The beginning is a number
-		else if (tokens[idx].code == PARSE_NUMBER) {
-			*value = (int)tokens[idx].value;
-			idx++;
+		else if (token->code == PARSE_NUMBER) {
+			*value = (int)token->value;
+			old_token1 = token;
+			token = token->next;
 		}
 
 		// wrong character
 		else {
 			error("Wrong symbol");
-			return -tokens[idx].position;
+			return -token->position;
 		}
 
 		// We have the value, let's mult/div it to the major accumulator
 		res = operation(accum_major, major_op, *value, &accum_major);
-		if (!res) return -tokens[idx-1].position;
+		if (!res) return -old_token1->position;
 
 		// No more argument. We're done
-		if (idx == end) {
+		if (token == end) {
 			// Let's add accum_major to the minor accumulator
 			res = operation(accum_minor, minor_op, accum_major, &accum_minor);
-			if (!res) return -tokens[idx-1].position;
+			if (!res) return -old_token1->position;
 
 			// and we have the result
 			*value = accum_minor;
@@ -198,20 +201,20 @@ int is_math_formula(int start, int end, int *value) {
 		}
 
 		// Check the next symbol is an operation
-		if (idx + 1 > end || (tokens[idx].code != PARSE_PLUS &&
-							  tokens[idx].code != PARSE_MINUS &&
-							  tokens[idx].code != PARSE_MULT &&
-							  tokens[idx].code != PARSE_DIV) ) {
+		if (token->next == end || (token->code != PARSE_PLUS &&
+							  token->code != PARSE_MINUS &&
+							  token->code != PARSE_MULT &&
+							  token->code != PARSE_DIV) ) {
 			error("Expected an operation");
-			return -tokens[idx].position;
+			return -token->position;
 		}
 
-		op = tokens[idx].code;
+		op = token->code;
 
 		// We end the series of major operations
 		if (op == PARSE_PLUS || op == PARSE_MINUS) {
 			res = operation(accum_minor, minor_op, accum_major, &accum_minor);
-			if (!res) return -tokens[idx-1].position;
+			if (!res) return -token->position;
 			
 			accum_major = 1;
 			major_op = PARSE_MULT;
@@ -219,9 +222,66 @@ int is_math_formula(int start, int end, int *value) {
 		}
 		else major_op = op;
 
-		idx++;
+		old_token1 = token;
+		token = token->next;
 	}
 
 	error("Formula incomplete");
-	return -end;
+	return -old_token1->position;
+}
+
+
+#define PARSE_UNDEFINED	0
+#define PARSE_WORD		1
+#define PARSE_NUMBER	2
+#define PARSE_PLUS		3
+#define PARSE_MINUS		4
+#define PARSE_MULT		5
+#define PARSE_DIV		6
+#define PARSE_CMD		7
+#define PARSE_PARENTHESE_OPEN	8
+#define PARSE_PARENTHESE_CLOSE	9
+
+void parser_print_tokens(Token *tokens) {
+	while (tokens) {
+		switch(tokens->code) {
+			case PARSE_WORD:
+				printf("[%s] ", tokens->value);
+				break;
+			case PARSE_NUMBER:
+				printf("[%d] ", tokens->value);
+				break;
+			case PARSE_PLUS:
+				printf("[+] ");
+				break;
+			case PARSE_MINUS:
+				printf("[-] ");
+				break;
+			case PARSE_MULT:
+				printf("[*] ");
+				break;
+			case PARSE_DIV:
+				printf("[/] ");
+				break;
+			case PARSE_PARENTHESE_OPEN:
+				printf("[(] ");
+				break;
+			case PARSE_PARENTHESE_CLOSE:
+				printf("[)] ");
+				break;
+			default:
+				printf("[?] ");
+		}
+		tokens = tokens->next;
+	}
+	printf("\n");
+}
+
+void parser_memory_cleanup(Token *tokens) {
+	while (tokens) {
+		if (tokens->code == PARSE_WORD) free(tokens->value);
+		Token *tmp = tokens;
+		tokens = tokens->next;
+		free(tmp);
+	}
 }

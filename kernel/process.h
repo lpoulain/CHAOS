@@ -15,10 +15,12 @@ typedef struct process_t {
 	Window *win;						// The window used by the process
 	PageDirectory *page_dir;			// The page directory
 	struct process_t *next;				// The next process
-	char stack[PROCESS_STACK_SIZE];		// The stack
+//	char stack[PROCESS_STACK_SIZE];		// The stack
+	unsigned char *stack;
 	uint eax;							// Some registers
 	uint ebp;
 	uint esp;
+	char kernel_stack[PROCESS_STACK_SIZE];
 	uint eip;
 	uint flags;							// Some flags
 	void (*function) ();				// The function to call after initialization
@@ -33,6 +35,8 @@ void move_stack(void *new_stack_start, uint size);
 void init_tasking();
 int getpid();
 void error(const char*);
+void error_reset();
+const char *error_get();
 
 extern volatile Process *current_process;
 
