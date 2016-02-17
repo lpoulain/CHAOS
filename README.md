@@ -43,6 +43,12 @@ When the processes are waiting for a keyboard input, they are in polling mode, w
 
 The two shell processes are run in user mode (ring 3) but still call many kernel primitives directly. In the future they will be using only system calls.
 
+#### Loading a process from disk
+
+CHAOS offers a rudimentary way to run an executable from the disk. This executable must be compiled in the ELF format, have a relocation table (ld -q option) and use the only system call currently implemented: syscall_printf(). The only example available right now is echo (source code: echo.c)
+
+The OS will load the file into memory, go through the relocation table, relocate the pointers and execute the process.
+
 #### How to run it
 
 The makefile is designed to work with the GNU's gcc and ld. The build can happen on any platform as long as it's a version of gcc which can generate ELF binaries. On OS X, Macports' version of gcc and ld only generate Mach-O executable, so you will need to manually download and build binutils and gcc (see http://wiki.osdev.org/GCC_Cross-Compiler)
