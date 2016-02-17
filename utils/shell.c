@@ -228,12 +228,15 @@ void process_command(Window *win, ShellEnv *env) {
 
 	if (!strcmp(win->buffer, "help")) {
 		win->action->puts(win, "Commands:"); win->action->putcr(win);
-		win->action->puts(win, "- cls: clear screen"); win->action->putcr(win);
 		win->action->puts(win, "- help: this help"); win->action->putcr(win);
+		win->action->puts(win, "- cls: clear screen"); win->action->putcr(win);
 		win->action->puts(win, "- stack: prints the stack trace"); win->action->putcr(win);
 		win->action->puts(win, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); win->action->putcr(win);
 		win->action->puts(win, "- mem: main memory pointers"); win->action->putcr(win);
 		win->action->puts(win, "- mem [hex address]: memory dump (to test paging)"); win->action->putcr(win);
+		win->action->puts(win, "- heap: shows what is being allocated in the heap"); win->action->putcr(win);
+		win->action->puts(win, "- cd, ls, cat: basic filesystem functions"); win->action->putcr(win);
+		win->action->puts(win, "- run [exec]: executes a file"); win->action->putcr(win);
 		win->action->puts(win, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
 		win->action->putcr(win);
 		return;

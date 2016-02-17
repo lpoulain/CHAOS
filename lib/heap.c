@@ -9,8 +9,10 @@ use it as its own heap when it can allocate/free memory for its own use.
 
 SMALL OBJECT ALLOCATIONS
 
-The small objects heap is right now very primitive - it only allocates memory and never deallocates it
-Eventually it will be something like http://g.oswego.edu/dl/html/malloc.html
+The small objects heap is loosely based on http://g.oswego.edu/dl/html/malloc.html in the sense
+that it's a series of blocks (occupied or empty) surrounded by a header and a footer. The objects
+are however NOT stored in bins right now, so scanning for an empty block might take some time as
+the heap grows.
 
 2) Pages block allocations
 
