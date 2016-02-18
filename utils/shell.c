@@ -507,13 +507,13 @@ void shell() {
 	win->action->init(win, "Shell");
 
 	// Setup the shell environment
-	ShellEnv env;
-	memset(&env, 0, sizeof(ShellEnv));
-	env.dir_index = (DirEntry*)kmalloc_pages(2, "Process current dir");
-	env.dir_cluster = 2;
-	strcpy(env.path, "");
+	ShellEnv *env = (ShellEnv*)kmalloc(sizeof(ShellEnv));
+	memset(env, 0, sizeof(ShellEnv));
+	env->dir_index = (DirEntry*)kmalloc_pages(2, "Shell current dir");
+	env->dir_cluster = 2;
+	strcpy(env->path, "");
 
-	prompt(win, &env);
+	prompt(win, env);
 	if (win == window_focus) win->action->set_cursor(win);
 	win->buffer_end = 0;
 
@@ -523,4 +523,6 @@ void shell() {
 		process_char(c, win, &env);
 		mouse_show();
 	}
+
+	kfree(env);
 }
