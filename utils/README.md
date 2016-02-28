@@ -2,6 +2,8 @@
 
 This directory contains a few "user processes". Not all these proceses are really user processes in the sense that their code is part of the kernel, and they call directly several kernel functions. `echo` and `formula` however are compiled separately and call kernel functions through system calls.
 
+![](CHAOS - Utils.png)
+
 ## Shell
 
 That is the first processes.

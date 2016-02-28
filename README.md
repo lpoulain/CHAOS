@@ -1,7 +1,7 @@
 # CHAOS (CHeers, Another Operating System)
 
 CHAOS is a simple 32-bit multitasking operating system I am writing from scratch in assembly and C in order to better understand how operating systems work.
-
+![](CHAOS.png)
 Here are its highlights:
 
 - Full use of the i386 protected mode with paging and use of both kernel and user modes

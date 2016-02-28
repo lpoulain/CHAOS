@@ -1,5 +1,7 @@
 # The kernel
 
+![](CHAOS - Kernel.png)
+
 Here is what the kernel does:
 
 - Heap: a simple heap management system (but getting better with time)
