@@ -59,10 +59,16 @@ struct WindowAction {
 	void (*putnb_right) (Window *, int);
 	void (*backspace) (Window *);
 	void (*putcr) (Window *);
+	void (*cursor) (Window *, uint, uint);
+	uint (*max_x_chars) (Window *);
+	uint (*max_y_chars) (Window *);
+	void (*print) (Window *, const char *, uint, uint);
+	void (*printc) (Window *, char, uint, uint);
 	void (*set_cursor) (Window *);
 	void (*set_focus) (Window *, Window *);
 	void (*remove_focus) (Window *);
 	void (*redraw) (Window *, uint, uint, uint, uint);
+	void (*scroll_down) (Window *, uint);
 };
 
 uint display_mode();
@@ -92,5 +98,7 @@ Window *set_window_debug(Window *new);
 void printf_win(Window *, const char *format, ...);
 
 extern void (*dump_mem)(void *, int, int);
+extern void (*mouse_show)();
+extern void (*mouse_hide)();
 
 #endif

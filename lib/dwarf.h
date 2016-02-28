@@ -39,7 +39,7 @@
 #define DW_FORM_flag_present	0x19
 #define DW_FORM_ref_sig8	0x20
 
-
+/*
 extern unsigned char *kernel_debug_info;
 extern uint kernel_debug_info_size;
 extern unsigned char *kernel_debug_line;
@@ -47,6 +47,7 @@ extern uint kernel_debug_line_size;
 extern unsigned char *kernel_debug_abbrev;
 extern uint kernel_debug_abbrev_size;
 extern unsigned char *kernel_debug_str;
+*/
 
 int decodeSLEB128(uint8 * leb128, uint *leb128_length);
 uint decodeULEB128(uint8 *p, uint *n);

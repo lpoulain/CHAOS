@@ -32,11 +32,12 @@ sector = FAT * 8 + 32 + 1
 */
 
 extern unsigned char * read_sector(unsigned char *buf, uint addr);
+extern void write_sector(unsigned char *buf, uint addr);
 
-uint16 FAT_table[4096];
+uint16 FAT_table[2048];
 
 void FAT12_load_table() {
-	memset(&FAT_table, 0, 8192);
+	memset(&FAT_table, 0, 0x1000);
 	unsigned char *buf = (char*)&FAT_table;
 
 	// Read the FAT table
@@ -68,7 +69,7 @@ void FAT12_read_file(DirEntry *f, char *buf) {
 
 	uint16 fat_entry = f->address;
 
-//	debug_i("FAT entry: ", fat_entry);
+//	printf("Sector: %d\n", fat_entry*8 + 32);
 	while (fat_entry != 0 && fat_entry < (uint16)0xFF) {
 		for (int i=0; i<8; i++) {
 			read_sector(buf, fat_entry*8 + 32 + i);
@@ -79,11 +80,27 @@ void FAT12_read_file(DirEntry *f, char *buf) {
 	}
 }
 
+void FAT12_write_file(DirEntry *f, char *buf) {
+	void FAT12_load_table();
+
+	uint16 fat_entry = f->address;
+	while (fat_entry != 0 && fat_entry < (uint16)0xFF) {
+		for (int i=0; i<8; i++) {
+//			printf("Writing sector %d\n", fat_entry*8 + 32 + i);
+			write_sector(buf, fat_entry*8 + 32 + i);
+			buf += 512;
+			for (int i=0; i<1000000; i++);
+		}
+		fat_entry = FAT12_read_entry(fat_entry);
+//		printf("FAT entry: %d\n", fat_entry);
+	}
+}
+
 // Reads the directory (fat_DirEntry format) and converts the entries
 // into DirEntry
 void FAT12_read_directory(uint cluster, DirEntry *dir_index) {
 	char *buf = (char*)dir_index;
-	char *buf_end = buf + 8192;
+	char *buf_end = buf + 0x1000;
 	uint16 filename_idx = 0;
 //	debug_i("FAT: ", buf);
 

@@ -42,6 +42,14 @@ void gui_scroll(Window *win) {
 	win->text_end -= 80;
 }
 
+void gui_scroll_down(Window *win, uint y) {
+	uint bottom = (win->top_y + 11) + 8*((win->bottom_y-1 - (win->top_y + 11)) / 8);
+	copy_box(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, bottom, -8);
+	draw_box(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, win->top_y + 17 + y*8);
+//	draw_frame(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, bottom - 8);
+//	draw_frame(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, win->top_y + 18 + y*8);
+}
+
 // Moves the cursor position to the next line (do not draw anything)
 void gui_next_line(Window *win) {
 	win->cursor_x = win->left_x + 2;
@@ -60,11 +68,16 @@ void gui_set_cursor(Window *win) {
 	if (window_focus != win) return;
 
 	if (win->cursor_x + 8 > win->right_x - 2) gui_next_line(win);
-	draw_char(0, win->cursor_x, win->cursor_y);
+
+	if (!strncmp(win->title, "Edit", 4))
+		draw_edit_cursor(win->cursor_x, win->cursor_y);
+	else
+		draw_char(0, win->cursor_x, win->cursor_y);
 }
 
 void gui_remove_cursor(Window *win) {
-	draw_char(' ', win->cursor_x, win->cursor_y);
+	if (strncmp(win->title, "Edit", 4))
+		draw_char(' ', win->cursor_x, win->cursor_y);
 }
 
 void gui_draw_window_header(Window *win, int focus) {
@@ -108,7 +121,7 @@ void gui_init(Window *win, const char *title) {
 	int i;
 
 	win->title = title;
-	win->text = (char*)kmalloc(4800);
+	if (win->text == 0) win->text = (char*)kmalloc(4800);
 	memset(win->text, 0, 4800);
 	win->text_end = 0;
 
@@ -227,6 +240,8 @@ void gui_putnb(Window *win, int nb) {
 		}
 		nb_ref /= 10;
 	}
+
+	if (leading_zero) win->action->putc(win, '0');
 }
 
 void gui_putnb_right(Window *win, int nb) {
@@ -333,6 +348,28 @@ void gui_redraw(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 	}
 }
 
+void gui_edit_cursor(Window *win, uint x, uint y) {
+	win->cursor_x = win->left_x + 2 + x*8;
+	win->cursor_y = win->top_y + 11 + y*8;
+	draw_edit_cursor(win->cursor_x, win->cursor_y);
+}
+
+uint gui_max_x_chars(Window *win) {
+	return (win->right_x - win->left_x - 2) / 8;
+}
+
+uint gui_max_y_chars(Window *win) {
+	return (win->bottom_y - win->top_y - 2) / 8;
+}
+
+void gui_print(Window *win, const char *text, uint x, uint y) {
+	draw_string(text, win->left_x + 2 + x*8, win->top_y + 11 + y*8);
+}
+
+void gui_printc(Window *win, char c, uint x, uint y) {
+	draw_font(c, win->left_x + 2 + x*8, win->top_y + 11 + y*8);
+}
+
 // Definition of the various windowing primitives in the GUI environment
 struct WindowAction gui_window_action = {
 	.init = &gui_init,
@@ -345,9 +382,15 @@ struct WindowAction gui_window_action = {
 	.backspace = &gui_backspace,
 	.putcr = &gui_putcr,
 	.set_cursor = &gui_set_cursor,
+	.cursor = &gui_edit_cursor,
+	.max_x_chars = &gui_max_x_chars,
+	.max_y_chars = &gui_max_y_chars,
+	.print = &gui_print,
+	.printc = &gui_printc,
 	.set_focus = &gui_set_focus,
 	.remove_focus = &gui_remove_focus,
-	.redraw = &gui_redraw
+	.redraw = &gui_redraw,
+	.scroll_down = &gui_scroll_down
 };
 
 // We define two windows

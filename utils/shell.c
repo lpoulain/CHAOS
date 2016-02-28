@@ -4,12 +4,14 @@
 #include "shell.h"
 #include "process.h"
 #include "parser.h"
+#include "compiler.h"
 #include "display.h"
 #include "display_vga.h"
 #include "gui_window.h"
 #include "disk.h"
 #include "debug.h"
 #include "debug_info.h"
+#include "elf.h"
 
 #define DISK_ERR_DOES_NOT_EXIST	-2
 
@@ -56,7 +58,10 @@ void countdown(Window *win) {
 extern unsigned char *kernel_debug_line;
 extern unsigned char *kernel_debug_info;
 extern unsigned char *kernel_debug_str;
-extern void load_elf(const char *filename);
+extern void edit(DirEntry *current_dir, uint dir_cluster, const char *filename);
+extern unsigned char * read_sector(unsigned char *buf, uint addr);
+extern void write_sector(unsigned char *buf, uint addr);
+typedef void (*function)(int, char **);
 
 #define asm_rdmsr(reg) ({uint low,high;asm volatile("rdmsr":"=a"(low),"=d"(high):"c"(reg));low|((uint)high<<32);})
 #define asm_wrmsr(reg,val) do{asm volatile("wrmsr"::"a"((uint)val),"d"((uint)((uint)val)),"c"(reg));}while(0)
@@ -77,11 +82,6 @@ void process_command(Window *win, ShellEnv *env) {
 		else win->action->puts(win, "Debug is off");
 
 		win->action->putcr(win);
-		return;
-	}
-
-	if (!strcmp(win->buffer, "d")) {
-		
 		return;
 	}
 
@@ -125,12 +125,6 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
-
-	if (!strncmp(win->buffer, "run ", 4)) {
-		load_elf(win->buffer + 4);
-		return;
-	}
-
 	if (!strncmp(win->buffer, "cd ", 3)) {
 		disk_ls(env->dir_cluster, env->dir_index);
 		int result = disk_cd(win->buffer+3, env->dir_index, env->path);
@@ -155,8 +149,8 @@ void process_command(Window *win, ShellEnv *env) {
 	if (!strncmp(win->buffer, "cat ", 4)) {
 		File f;
 
-		disk_ls(env->dir_cluster, env->dir_index);
-		int result = disk_load_file(win->buffer+4, env->dir_index, &f);
+//		disk_ls(env->dir_cluster, env->dir_index);
+		int result = disk_load_file(win->buffer+4, env->dir_cluster, env->dir_index, &f);
 
 		if (result == DISK_ERR_DOES_NOT_EXIST) {
 			win->action->puts(win, "The file does not exist");
@@ -192,6 +186,8 @@ void process_command(Window *win, ShellEnv *env) {
 		}
 		win->action->putcr(win);
 
+		kfree(f.body);
+
 		return;
 	}
 
@@ -199,7 +195,7 @@ void process_command(Window *win, ShellEnv *env) {
 		File f;
 
 		disk_ls(env->dir_cluster, env->dir_index);
-		int result = disk_load_file(win->buffer+5, env->dir_index, &f);
+		int result = disk_load_file(win->buffer+5, env->dir_cluster, env->dir_index, &f);
 
 		if (result == DISK_ERR_DOES_NOT_EXIST) {
 			win->action->puts(win, "The file does not exist");
@@ -225,6 +221,20 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
+	if (!strncmp(win->buffer, "edit ", 5)) {
+		disk_ls(env->dir_cluster, env->dir_index);
+		edit(env->dir_index, env->dir_cluster, win->buffer + 5);
+
+		win->action->init(win, "Shell");
+		win->action->cls(win);
+
+		return;
+	}
+
+	if (!strncmp(win->buffer, "cc ", 3)) {
+		compile_formula(win, win->buffer+3, env->dir_cluster, env->dir_index);
+		return;
+	}	
 
 	if (!strcmp(win->buffer, "help")) {
 		win->action->puts(win, "Commands:"); win->action->putcr(win);
@@ -329,6 +339,24 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
+	if (!strncmp(win->buffer, "run ", 4)) {
+		int idx = 4;
+		int argc = 0;
+		char* argv[10];
+		char *filename = win->buffer + 4;
+
+		while (win->buffer[idx] != ' ' && idx++ < 256);
+		win->buffer[idx++] = 0;
+
+		argc = 1;
+		argv[0] = win->buffer + idx;
+
+//		printf("[%s]\n", argv[0]);
+
+		elf_exec(filename, argc, (char **)&argv);
+		return;
+	}
+
 	// Parsing arithmetic operations
 	Token *tokens;
 	int res = parse(win->buffer, &tokens);
@@ -341,67 +369,6 @@ void process_command(Window *win, ShellEnv *env) {
 		parser_memory_cleanup(tokens);
 		return;
 	}
-
-//	parser_print_tokens(tokens);
-
-//	printf("[%s]\n", tokens[0].value);
-//	printf("[%s]\n", tokens[1].value);
-
-/*	// cd command
-	if (strcmp(nb_tokens == 2 &&
-		tokens[0].code == PARSE_WORD && !strncmp(tokens[0].value, "cd", 2) &&
-		tokens[1].code == PARSE_WORD) {
-
-		int result = disk_cd(tokens[1].value, env->dir_index);
-
-		if (result == DISK_ERR_DOES_NOT_EXIST) {
-			win->action->puts(win, "The directory does not exist");
-			win->action->putcr(win);
-			return;
-		}
-		
-		if (result == DISK_ERR_NOT_A_DIR) {
-			win->action->puts(win, "This is not a directory");
-			win->action->putcr(win);
-			return;
-		}
-
-		env->dir_cluster = result + 4;
-		debug_i("New dir: ", result);
-		win->action->putcr(win);
-		return;
-	}
-*/
-/*	
-	// Draw box
-	if (nb_tokens == 5 &&
-		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "box") &&
-		tokens[1].code == PARSE_NUMBER &&
-		tokens[2].code == PARSE_NUMBER &&
-		tokens[3].code == PARSE_NUMBER &&
-		tokens[4].code == PARSE_NUMBER) {
-
-		draw_box((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
-
-		win->action->putcr(win);
-		return;
-	}
-
-	// Draw frame
-	if (nb_tokens == 5 &&
-		tokens[0].code == PARSE_WORD && !strcmp(tokens[0].value, "frame") &&
-		tokens[1].code == PARSE_NUMBER &&
-		tokens[2].code == PARSE_NUMBER &&
-		tokens[3].code == PARSE_NUMBER &&
-		tokens[4].code == PARSE_NUMBER) {
-
-		draw_background((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
-		draw_frame((uint)tokens[1].value, (uint)tokens[2].value, (uint)tokens[3].value, (uint)tokens[4].value);
-
-		win->action->putcr(win);
-		return;
-	}
-*/
 
 	int value;
 	error_reset();
@@ -509,7 +476,7 @@ void shell() {
 	// Setup the shell environment
 	ShellEnv *env = (ShellEnv*)kmalloc(sizeof(ShellEnv));
 	memset(env, 0, sizeof(ShellEnv));
-	env->dir_index = (DirEntry*)kmalloc_pages(2, "Shell current dir");
+	env->dir_index = (DirEntry*)kmalloc_pages(1, "Shell current dir");
 	env->dir_cluster = 2;
 	strcpy(env->path, "");
 
@@ -520,7 +487,7 @@ void shell() {
 	for (;;) {
 		unsigned char c = getch();
 		mouse_hide();
-		process_char(c, win, &env);
+		process_char(c, win, env);
 		mouse_show();
 	}
 

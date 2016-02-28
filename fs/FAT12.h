@@ -23,5 +23,6 @@ void FAT12_load_table();
 uint16 FAT12_read_entry(uint idx);
 void FAT12_read_directory(uint cluster, DirEntry *entries);
 void FAT12_read_file(DirEntry *f, char *buffer);
+void FAT12_write_file(DirEntry *f, char *buffer);
 
 #endif

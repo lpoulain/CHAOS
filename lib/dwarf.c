@@ -1,8 +1,5 @@
 #include "libc.h"
 
-
-
-
 int decodeSLEB128(uint8 * leb128, uint *leb128_length)
 {
     int number = 0;

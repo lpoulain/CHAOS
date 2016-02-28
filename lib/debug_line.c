@@ -1,7 +1,7 @@
 #include "libc.h"
+#include "elf.h"
 #include "debug_line.h"
 #include "dwarf.h"
-
 
 typedef struct __attribute__((packed)) {
 	uint length;
@@ -16,7 +16,7 @@ typedef struct __attribute__((packed)) {
 } DebugLineHeader;
 
 
-int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame) {
+int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame, Elf *elf) {
 	unsigned char *dirs = (unsigned char*)header + sizeof(DebugLineHeader);
 	unsigned char *files = dirs;
 	unsigned char *end = (unsigned char *)header + header->length;
@@ -145,7 +145,7 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame) {
 			opcode += 1 + nb_bytes;
 		}
 
-		if (is_debug()) printf("[%x][%x] Opcode %d => Address=%x, line=%d       \n", addr_opcode, ((unsigned char*)addr_opcode - kernel_debug_line), old_opcode, dwarf_address, dwarf_line);
+		if (is_debug()) printf("[%x][%x] Opcode %d => Address=%x, line=%d       \n", addr_opcode, ((unsigned char*)addr_opcode - elf->section[ELF_SECTION_DEBUG_LINE].start), old_opcode, dwarf_address, dwarf_line);
 	}
 
 	if (dwarf_address > (unsigned char *)ptr) dwarf_line = old_line;
@@ -170,10 +170,10 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame) {
 }
 
 
-DebugLineHeader *debug_line_find_block(void *ptr) {
-	DebugLineHeader *header = (DebugLineHeader*)kernel_debug_line;
+DebugLineHeader *debug_line_find_block(void *ptr, Elf *elf) {
+	DebugLineHeader *header = (DebugLineHeader*)elf->section[ELF_SECTION_DEBUG_LINE].start;
 	DebugLineHeader *old_block = 0;
-	unsigned char *end = kernel_debug_line + kernel_debug_line_size;
+	unsigned char *end = elf->section[ELF_SECTION_DEBUG_LINE].end;
 	int idx = 0;
 
 	while (header->length > 0 && (unsigned char *)header < end) {
@@ -195,11 +195,13 @@ DebugLineHeader *debug_line_find_block(void *ptr) {
 	return old_block;
 }
 
+extern Elf *kernel_elf;
+
 int debug_line_find_address(void *ptr, StackFrame *frame) {
-	DebugLineHeader *header = debug_line_find_block(ptr);
+	DebugLineHeader *header = debug_line_find_block(ptr, kernel_elf);
 	if (header == 0) return 0;
 
-//	debug_i("Found the block: ", header);
+//	printf("Found the block: %x\n", header);
 
-	return debug_line_get_path(header, ptr, frame);
+	return debug_line_get_path(header, ptr, frame, kernel_elf);
 }

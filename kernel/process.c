@@ -26,6 +26,8 @@ int new_process = 0;				// Indicates if it's the first "context switch"
 
 extern uint read_eip();
 extern uint get_eip();
+extern void shell();
+extern void edit();
 
 uint nb_processes = 0;
 
@@ -55,6 +57,9 @@ void switch_to_user_mode()
 void init_processes() {
 	processes[0].pid = 0;
 	processes[1].pid = 1;
+  processes[0].function = shell;
+  processes[1].function = shell;
+  
   if (display_mode() == VGA_MODE) {
     init_window(&gui_win1, &processes[0]);
     init_window(&gui_win2, &processes[1]);

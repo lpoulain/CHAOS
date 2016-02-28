@@ -102,6 +102,33 @@ int atoi(char *str) {
     return res;
 }
 
+void itoa(int nb, char *str) {
+    if (nb < 0) {
+        *str++ = '-';
+        nb = -nb;
+    }
+    uint nb_ref = 1000000000;
+    uint leading_zero = 1;
+    uint digit;
+
+    for (int i=0; i<=9; i++) {
+        if (nb >= nb_ref) {
+            digit = nb / nb_ref;
+            *str++ = '0' + digit;
+            nb -= nb_ref * digit;
+
+            leading_zero = 0;
+        } else {
+            if (!leading_zero) *str++ = '0';
+        }
+        nb_ref /= 10;
+    }
+
+    if (leading_zero) *str++ = '0';
+
+    *str = 0;
+}
+
 uint atoi_hex(char *str) {
     uint result = 0, mult = 1;
     int len = strlen(str)-1;
@@ -231,13 +258,13 @@ void C_stack_dump(void *esp, void *ebp) {
     printf("Kernel stack:  %x-%x\n", (uint)&current_process->kernel_stack, (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE);
     printf("Process stack: %x-%x\n", (uint)current_process->stack, (uint)current_process->stack + PROCESS_STACK_SIZE);
 
-    uint cs;
-    asm volatile("mov %%cs, %0" : "=r"(cs));
+//    uint cs;
+//    asm volatile("mov %%cs, %0" : "=r"(cs));
 
 //    dump_mem(esp, 320, 1);
-    uint ptr = (uint)esp;
-    uint stack_start, stack_end;
-    if (cs == 8) {
+    uint ptr = (uint)ebp;
+/*    uint stack_start, stack_end;
+    if ((uint)&current_process->kernel_stack <= ptr && ptr <= (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE) {
         stack_start = (uint)&current_process->kernel_stack;
         stack_end = (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE;
     }
@@ -245,20 +272,30 @@ void C_stack_dump(void *esp, void *ebp) {
         stack_start = (uint)current_process->stack;
         stack_end = (uint)current_process->stack + PROCESS_STACK_SIZE;
     }
-
-//        stack_start = (uint)current_process->stack;
+*/
+//       stack_start = (uint)current_process->stack;
 //        stack_end = (uint)current_process->stack + PROCESS_STACK_SIZE;
+/*
+    stack_start = (uint)esp;
+    stack_end = (uint)ebp + 0x100;*/
 
-//    stack_start = (uint)esp;
-//    stack_end = (uint)ebp + 0x100;
 
     uint fct_ptr, nb_lines, zeros;
-    uint8 *code_ptr;
     StackFrame frame;
+    /*
+    uint *tmp = (uint*)esp;
 
-    while (ptr >= stack_start && ptr <= stack_end) {
+    while ( ((uint)&current_process->kernel_stack > *tmp || *tmp > (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE) &&
+            ((uint)current_process->stack > *tmp || *tmp > (uint)current_process->stack + PROCESS_STACK_SIZE) ) {
+        tmp++;
+    }
+    ptr = (uint)tmp;
+*/
+
+//    while (ptr >= stack_start && ptr <= stack_end) {
+    while ( ((uint)&current_process->kernel_stack <= ptr && ptr <= (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE) ||
+            ((uint)current_process->stack <= ptr && ptr <= (uint)current_process->stack + PROCESS_STACK_SIZE) ) {
         fct_ptr = *((uint*)ptr + 1);
-        code_ptr = (uint8*)fct_ptr;
 
         if (debug_line_find_address((void*)fct_ptr, &frame)) {
             debug_info_find_address((void*)fct_ptr, &frame);

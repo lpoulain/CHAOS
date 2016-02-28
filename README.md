@@ -24,7 +24,7 @@ The two shell processes are run in user mode (ring 3) but still call many kernel
 
 ## Loading a process from disk
 
-CHAOS offers a rudimentary way to run an executable from the disk. This executable must be compiled in the ELF format, have a relocation table (ld -q option) and use the only system call currently implemented: syscall_printf(). The only example available right now is echo (source code: echo.c)
+CHAOS offers a rudimentary way to run an executable from the disk. This executable must be compiled in the ELF format, have a relocation table (ld -q option) and use the only system call currently implemented: syscall_printf(). There are two examples right now: `echo` and `formula` (see in /utils/).
 
 The OS will load the file into memory, go through the relocation table, relocate the pointers and execute the process.
 

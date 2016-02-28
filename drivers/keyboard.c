@@ -87,7 +87,8 @@ unsigned char kbdus_shift[128] =
     0,  /* F12 Key */
     0,  /* All other keys are undefined */
 };
-uint shift_key_pressed = 0;
+uint8 shift_key_pressed = 0;
+uint8 ctrl_key_pressed = 0;
 
 /* Handles the keyboard interrupt */
 static void keyboard_handler(registers_t regs)
@@ -102,15 +103,22 @@ static void keyboard_handler(registers_t regs)
     {
         // Handle the case where the user released the shift, alt or control key
         scancode &= ~0x80;
-        if (scancode == 42 || scancode == 54) shift_key_pressed = 0;
+        if (scancode == 0x2A || scancode == 0x36) shift_key_pressed = 0;
+        if (scancode == 0x1D) ctrl_key_pressed = 0;
     }
     else
     {
         // Handle the case where a pkey was pressed
 
         // Shift is pressed
-        if (scancode == 42 || scancode == 54) {
+        if (scancode == 0x2A || scancode == 0x36) {
             shift_key_pressed = 1;
+            return;
+        }
+
+        // Ctrl is pressed
+        if (scancode == 0x1D) {
+            ctrl_key_pressed = 1;
             return;
         }
 
@@ -120,8 +128,9 @@ static void keyboard_handler(registers_t regs)
             return;
         }
 
-        char c;
+        unsigned char c;
         if (shift_key_pressed) c = kbdus_shift[scancode];
+        else if (ctrl_key_pressed) c = kbdus_shift[scancode] | 0x80;
         else c = kbdus[scancode];
 
         // If it is not an actionable key, do nothing

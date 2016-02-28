@@ -75,7 +75,8 @@ int main (uint esp) {
     // Because we have two processes, this line will be called twice
 
     jump_usermode();
-    shell();
+//    current_process->function();
+//    shell();
 
     return 0;
 }

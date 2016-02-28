@@ -159,7 +159,17 @@ void draw_font(unsigned char c, uint x, uint y) {
 	}
 }
 
-void draw_cursor(uint x, uint y) {
+void draw_edit_cursor(uint x, uint y) {
+	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
+	uint offset1 = x % 8;
+
+	for (int i=0; i<8; i++) {
+		*pixel &= ~(0x80 >> offset1);
+		pixel += 80;
+	}
+}
+
+void draw_mouse_cursor(uint x, uint y) {
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset1 = x % 8;
 	uint offset2 = 8 - offset1;
@@ -195,7 +205,7 @@ void draw_cursor(uint x, uint y) {
 	}
 }
 
-void draw_cursor_buffer(uint x, uint y) {
+void draw_mouse_cursor_buffer(uint x, uint y) {
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset1 = x % 8;
 	uint offset2 = 8 - offset1;
@@ -208,7 +218,7 @@ void draw_cursor_buffer(uint x, uint y) {
 	}
 }
 
-void save_cursor_buffer(uint x, uint y) {
+void save_mouse_cursor_buffer(uint x, uint y) {
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset1 = x % 8;
 	uint offset2 = 8 - offset1;
@@ -412,12 +422,12 @@ void draw_box(uint left_x, uint right_x, uint top_y, uint bottom_y) {
 // This version of copy_box() is incomplete. Right now it copies the sides outside the
 // box. In the way it's currently used it doesn't show, but that needs to be fixed
 // nonetheless
-void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, uint nb_pixels_up) {
+void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, int nb_pixels_up) {
 	int i, j;
 
 	// We don't want to go pixel by pixel, it would be too slow
 	// So let's map this 32 pixels at a time as we're running 32-bit code
-	uint *pixels = (uint*)(VGA_ADDRESS) + 20*top_y + left_x / 32;
+	uint *pixels;
 	char *pixel = (char*)pixels;
 	uint *new_pixels;
 
@@ -453,10 +463,21 @@ void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, uint nb_pixe
 	}
 
 	// For each line of the window
+	int increment;
+	if (nb_pixels_up >= 0) {
+		 pixels = (uint*)(VGA_ADDRESS) + 20*top_y + left_x / 32;
+		 increment = 20;
+	}
+	else {
+		pixels = (uint*)(VGA_ADDRESS) + 20*bottom_y + left_x / 32;
+		increment = -20;
+	}
+
 	for (j=top_y; j<=bottom_y; j++) {
-		new_pixels = pixels + 20;
+		new_pixels = pixels + increment;
 
 		// Fills the first 32-block of the window
+
 //		*pixels |= *mask1b;
 		*pixels = *(pixels + 20 * nb_pixels_up);
 		pixels++;

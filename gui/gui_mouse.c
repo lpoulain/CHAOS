@@ -29,7 +29,7 @@ void gui_mouse_move(int delta_x, int delta_y, uint mouse_button_down) {
 
 	int i;
 	uint *address_left, *address_right, *address_top, *address_bottom;
-	draw_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor_buffer(mouse_x, mouse_y);
 
 	// If we have the button pressed down and the cursor on a window
 	// move the window
@@ -97,8 +97,8 @@ void gui_mouse_move(int delta_x, int delta_y, uint mouse_button_down) {
 	if (mouse_y >= 480) mouse_y = 479;
 
 	// Displays the mouse
-	save_cursor_buffer(mouse_x, mouse_y);
-	draw_cursor(mouse_x, mouse_y);
+	save_mouse_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor(mouse_x, mouse_y);
 }
 
 void gui_mouse_click() {
@@ -127,7 +127,7 @@ void gui_mouse_unclick() {
 	}
 
 	// Hides the mouse
-	draw_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor_buffer(mouse_x, mouse_y);
 
 	// Hides the frame (restores the frame buffer)
 	uint *address_left = (uint*)VGA_ADDRESS + 20*window_focus_y + window_focus_x/32;
@@ -249,19 +249,19 @@ void gui_mouse_unclick() {
 	frame_buffer_top[0] = 0x123456;
 
 	// Shows the mouse cursor
-	save_cursor_buffer(mouse_x, mouse_y);
-	draw_cursor(mouse_x, mouse_y);		
+	save_mouse_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor(mouse_x, mouse_y);		
 }
 
 void gui_mouse_hide() {
-	draw_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor_buffer(mouse_x, mouse_y);
 }
 
 void gui_mouse_show() {
-	save_cursor_buffer(mouse_x, mouse_y);
-	draw_cursor(mouse_x, mouse_y);
+	save_mouse_cursor_buffer(mouse_x, mouse_y);
+	draw_mouse_cursor(mouse_x, mouse_y);
 }
 
 void gui_save_mouse_buffer() {
-	save_cursor_buffer(mouse_x, mouse_y);
+	save_mouse_cursor_buffer(mouse_x, mouse_y);
 }

@@ -1,4 +1,13 @@
 #include "libc.h"
+#include "disk.h"
+
+#define ELF_SECTION_TEXT            0
+#define ELF_SECTION_STRING          1
+#define ELF_SECTION_DEBUG_INFO      2
+#define ELF_SECTION_DEBUG_LINE      3
+#define ELF_SECTION_DEBUG_ABBREV    4
+#define ELF_SECTION_DEBUG_STR       5
+#define ELF_SECTION_REL_TEXT        6
 
 typedef struct
 {
@@ -31,3 +40,22 @@ typedef struct
     uint sh_addralign;
     uint sh_entsize;
 } ElfSectionHeader;
+
+typedef struct
+{
+    unsigned char *start;
+    unsigned char *end;
+} ElfSection;
+
+typedef struct
+{
+    File *file;
+    ElfHeader *header;
+    uint initial_code_address;
+    int relocation_offset;
+    ElfSection section[7];
+} Elf;
+
+Elf *elf_load(const char *filename, uint dir_cluster);
+void elf_exec(const char *filename, int argc, char **argv);
+void elf_relocate_addresses(Elf *elf);

@@ -11,6 +11,7 @@
 #define PARSE_CMD		7
 #define PARSE_PARENTHESE_OPEN	8
 #define PARSE_PARENTHESE_CLOSE	9
+#define PARSE_EQUAL				10
 
 typedef struct token_s {
 	uint code;

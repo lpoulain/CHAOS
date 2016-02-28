@@ -48,9 +48,15 @@ kernel_v.sym: kernel_v.elf
 	./objcopy --only-keep-debug kernel_v.elf kernel_v.sym
 	./objdump -g kernel_v.sym > symbols.txt >& /dev/null
 
-echo: echo.c
-	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding $(INCLUDE) -g -c $< -o echo.o
-	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -q -o echo echo.o
+echo: utils/echo/echo.c
+	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding -fno-asynchronous-unwind-tables $(INCLUDE) -g -c $< -o utils/echo/echo.o
+	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -q -o utils/echo/echo utils/echo/echo.o
+	cp utils/echo/echo /Volumes/CHAOS/
+
+formula: utils/formula/formula.c
+	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding -fno-asynchronous-unwind-tables $(INCLUDE) -g -c $< -o utils/formula/formula.o
+	/usr/local/i686-elf/bin/ld -Tlink.ld -m elf_i386 -q -o utils/formula/formula utils/formula/formula.o
+	cp utils/formula/formula /Volumes/CHAOS/
 
 clean:
 	rm -rf boot.bin

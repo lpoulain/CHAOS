@@ -1,4 +1,5 @@
 #include "libc.h"
+#include "elf.h"
 #include "dwarf.h"
 #include "debug.h"
 
@@ -38,13 +39,13 @@ typedef struct __attribute__((packed)) {
 
 // Macros to try to avoid wild reads/writes
 #define CHECK_VALID_DIE(ptr) \
-    if (ptr < kernel_debug_info || ptr > kernel_debug_info + kernel_debug_info_size) {	\
+    if (ptr < elf->section[ELF_SECTION_DEBUG_INFO].start || ptr > elf->section[ELF_SECTION_DEBUG_INFO].end) {	\
     	printf("ERROR: DIE pointer outside of range: %x\n", ptr);							\
     	return;																		\
     }
 
 #define CHECK_VALID_SCHEMA(ptr)	\
-    if (ptr < kernel_debug_abbrev || ptr > kernel_debug_abbrev + kernel_debug_abbrev_size) {	\
+    if (ptr < elf->section[ELF_SECTION_DEBUG_ABBREV].start || ptr > elf->section[ELF_SECTION_DEBUG_ABBREV].end) {	\
     	printf("ERROR: schema pointer outside of range: %x\n", ptr);								\
     	return;																				\
     }
@@ -73,11 +74,11 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 
 // Goes through the Debugging Information Entries (DIE)
 // and finds the subprogram whose range covers the stack
-void debug_info_load() {
+void debug_info_load(Elf *elf) {
 	unsigned char *DIE_schema[100];
-	unsigned char *end_section = kernel_debug_info + kernel_debug_info_size;
-	unsigned char *die = kernel_debug_info;
-	unsigned char *start = (unsigned char *)kernel_debug_info;
+	unsigned char *end_section = elf->section[ELF_SECTION_DEBUG_INFO].end;
+	unsigned char *die = elf->section[ELF_SECTION_DEBUG_INFO].start;
+	unsigned char *start = die;
 
 	uint nb_types;
 	uint8 is_function_type;
@@ -90,12 +91,12 @@ void debug_info_load() {
 
 		// Finds the schema address in mem
 		// for each type of DIE
-		unsigned char *schema = kernel_debug_abbrev + header->abbrev_offset;
+		unsigned char *schema = elf->section[ELF_SECTION_DEBUG_ABBREV].start + header->abbrev_offset;
 		CHECK_VALID_SCHEMA(schema)
 		DIE_schema[1] = schema;
-		if (is_debug()) printf("Schema %d: %x (offset %x)\n", 1, schema, schema - kernel_debug_abbrev);
+		if (is_debug()) printf("Schema %d: %x (offset %x)\n", 1, schema, schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start);
 		nb_types = 1;
-		while (schema < kernel_debug_abbrev + kernel_debug_abbrev_size) {
+		while (schema < elf->section[ELF_SECTION_DEBUG_ABBREV].end) {
 			CHECK_VALID_SCHEMA(schema)
 			schema += 4;
 			while (*schema != 0 || *(schema-1) != 0) schema++;
@@ -105,11 +106,11 @@ void debug_info_load() {
 
 			nb_types++;
 			if (nb_types >= 100) {
-				printf("Error: too many DIE types: %x (%x / %x)\n", nb_types, schema, schema - kernel_debug_abbrev);
+				printf("Error: too many DIE types: %x (%x / %x)\n", nb_types, schema, schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start);
 				return;
 			}
 			DIE_schema[nb_types] = schema;
-			if (is_debug()) printf("Schema %d: %x (offset %x)\n", nb_types, schema, schema - kernel_debug_abbrev);
+			if (is_debug()) printf("Schema %d: %x (offset %x)\n", nb_types, schema, schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start);
 		}
 
 		uint *tmp = (uint*)die, n1, n2;
@@ -142,7 +143,7 @@ void debug_info_load() {
 			CHECK_VALID_SCHEMA(schema)
 			die++;
 
-//			printf("Schema: %d/%d (%x)", *schema, *(schema-1), (schema - kernel_debug_abbrev));
+//			printf("Schema: %d/%d (%x)", *schema, *(schema-1), (schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start));
 
 			// Goes through the schema and compute the
 			// space taken by each attribute
@@ -151,14 +152,14 @@ void debug_info_load() {
 				CHECK_VALID_DIE(die)
 				CHECK_VALID_ATTRIBUTE(schema)
 
-				if (is_debug()) printf("Attr DW_FORM_%s (%d) (%x, die=%x)\n", DW_FORM_name[*schema], *schema, (schema - kernel_debug_abbrev), die - kernel_debug_info);
+				if (is_debug()) printf("Attr DW_FORM_%s (%d) (%x, die=%x)\n", DW_FORM_name[*schema], *schema, (schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start), die - elf->section[ELF_SECTION_DEBUG_INFO].start);
 
 				// If this is DIE of type DW_TAG_subprogram
 				// we care about its fields
 				if (is_function_type) {
 					if (*(schema-1) == DW_AT_name) {
 						if (*schema == DW_FORM_string) functionRanges[nb_function_ranges].name = die;
-						else functionRanges[nb_function_ranges].name = kernel_debug_str + *(uint*)die;
+						else functionRanges[nb_function_ranges].name = elf->section[ELF_SECTION_DEBUG_STR].start + *(uint*)die;
 					}
 					if (*(schema-1) == DW_AT_low_pc) functionRanges[nb_function_ranges].low_pc = *(unsigned char **)die;
 					if ((uint)*(schema-1) == DW_AT_high_pc) functionRanges[nb_function_ranges].high_pc = *(uint*)die;
@@ -183,7 +184,7 @@ void debug_info_load() {
 							if (*(schema+1) != 0 || *(schema+2) != 0) schema++;
 							break;
 						default:
-							printf("UNKNOWN DW_FORM: %d (%x, offset %x)\n", *schema, schema, schema - kernel_debug_abbrev);
+							printf("UNKNOWN DW_FORM: %d (%x, offset %x)\n", *schema, schema, schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start);
 							return;
 					}
 				}

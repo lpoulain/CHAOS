@@ -16,7 +16,7 @@ int atoi_substr(char *str, int start, int end)
     return res;
 }
 
-#define NEXT_WORD while ( (c == ' ' || c == '\t' ||c == '\n') && c != 0 ) c = cmd[++cmd_pos]
+#define NEXT_WORD while ( (c == ' ' || c == '\t' ||c == '\n' || c == 0x0A) && c != 0 ) c = cmd[++cmd_pos]
 
 Token **parser_new_token(Token **tokens, uint code, uint position, char *value) {
 	(*tokens) = (Token*)malloc(sizeof(Token));
@@ -46,7 +46,7 @@ uint parse(char *cmd, Token **tokens) {
 			while (c >= '0' && c <= '9' && c != 0) c = cmd[++cmd_pos];
 			tokens = parser_new_token(tokens, PARSE_NUMBER, token_start, (char*)atoi_substr(cmd, token_start, cmd_pos-1));
 
-			if (c != ' ' && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
+			if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
 		}
 		// Symbol
 		else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
@@ -60,7 +60,7 @@ uint parse(char *cmd, Token **tokens) {
 
 			tokens = parser_new_token(tokens, PARSE_WORD, token_start, word);
 
-			if (c != ' ' && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
+			if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
 		}
 		// +
 		else if (c == '+') {

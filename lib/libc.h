@@ -17,6 +17,7 @@ int strncmp(const char *s1, const char *s2, uint n);
 
 uint atoi_hex(char *str);
 int atoi(char *str);
+void itoa(int, char*);
 
 void printf(const char *format, ...);
 
