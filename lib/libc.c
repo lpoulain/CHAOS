@@ -262,7 +262,7 @@ void C_stack_dump(void *esp, void *ebp) {
 //    asm volatile("mov %%cs, %0" : "=r"(cs));
 
 //    dump_mem(esp, 320, 1);
-    uint ptr = (uint)ebp;
+    uint ptr = (uint)esp;
 /*    uint stack_start, stack_end;
     if ((uint)&current_process->kernel_stack <= ptr && ptr <= (uint)&current_process->kernel_stack + PROCESS_STACK_SIZE) {
         stack_start = (uint)&current_process->kernel_stack;

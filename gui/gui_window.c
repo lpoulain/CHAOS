@@ -395,10 +395,10 @@ struct WindowAction gui_window_action = {
 
 // We define two windows
 Window gui_win1 = {
-	.left_x = 210,
+	.left_x = 150,
 	.right_x = 600,
 	.top_y = 10,
-	.bottom_y = 200,
+	.bottom_y = 220,
 	.action = &gui_window_action
 };
 
