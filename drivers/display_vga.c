@@ -1,6 +1,7 @@
 // These are the basic primitives to draw on a 640x480 monochrome screen
 
 #include "libc.h"
+#include "font.h"
 #include "display.h"
 #include "display_vga.h"
 #include "gui_mouse.h"
@@ -81,6 +82,8 @@ unsigned char cursor_large_mask[32] = { 0xC0, 0x00,
 
 
 extern const unsigned char font[128][8];
+/*extern const unsigned char font_chicago[2][35];
+extern const uint8 font_chicago_size[2];*/
 
 unsigned char cursor_buffer[48];
 
@@ -156,6 +159,64 @@ void draw_font(unsigned char c, uint x, uint y) {
 		*pixel &= mask2;
 		*pixel++ |= (~font[c_idx][i] << offset2);
 		pixel += 78;
+	}
+}
+
+int draw_typeface_font(unsigned char c, uint x, uint y) {
+	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
+	uint offset = x % 8;
+	unsigned char *new_pixel;
+
+	uint draw_second_byte = 1;
+	uint draw_third_byte = 1;
+
+	if (x >= 640 - 8  || offset + (*typeface->font)[c][34] <= 8) draw_second_byte = 0;
+	if (x >= 640 - 16 || offset + (*typeface->font)[c][34] <= 16) draw_third_byte = 0;
+
+	uint font;
+	uint mask = 0;
+	unsigned char *mask_bytes = (unsigned char *)&mask;
+	unsigned char *font_bytes = (unsigned char *)&font;
+	mask_bytes[2] = (*typeface->font)[c][32];
+	mask_bytes[1] = (*typeface->font)[c][33];
+//	printf("Mask: %x\n", mask);
+	mask >>= offset;
+
+	int bottom = typeface->bottom * 2;
+	if (y >= 480 - 12) bottom = bottom - (y - 480 + 12) * 2;
+
+	for (int i=typeface->top*2; i<bottom; i+=2) {
+		new_pixel = pixel + 80;
+
+		font = 0xFFFFFFFF;
+		font_bytes[2] = ~(*typeface->font)[c][i];
+		font_bytes[1] = ~(*typeface->font)[c][i+1];
+		font >>= offset;
+
+		*pixel |= mask_bytes[2];
+		*pixel++ &= font_bytes[2];
+
+		if (draw_second_byte) {
+			*pixel |= mask_bytes[1];
+			*pixel++ &= font_bytes[1];
+
+			if (draw_third_byte) {
+				*pixel |= mask_bytes[0];
+				*pixel++ &= font_bytes[0];
+
+			}
+		}
+
+		pixel = new_pixel;
+	}	
+
+	return (*typeface->font)[c][34];
+}
+
+void draw_typeface_string(const unsigned char *str, uint x, uint y) {
+	while (*str) {
+		x += draw_typeface_font(*str, x, y);
+		str++;
 	}
 }
 

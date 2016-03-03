@@ -197,6 +197,7 @@ void process_char_edit(unsigned char c, Window *win, EditEnv *env) {
 }
 
 int editor_load_file(const char *filename, uint dir_cluster, Window *win, EditEnv *env) {
+	disk_ls(dir_cluster, env->dir_index);
 	int result = disk_load_file(filename, dir_cluster, env->dir_index, env->file);
 
 	if (result == DISK_CMD_OK) return 0;

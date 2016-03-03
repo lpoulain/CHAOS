@@ -215,7 +215,7 @@ void compile_formula(Window *win, const char *filename, uint dir_cluster, DirEnt
 	File f_source;
 
 	disk_ls(dir_cluster, dir_index);
-	int result = disk_load_file(win->buffer+3, dir_cluster, dir_index, &f_source);
+	int result = disk_load_file(filename, dir_cluster, dir_index, &f_source);
 
 	if (result == DISK_ERR_DOES_NOT_EXIST) {
 		win->action->puts(win, "The file does not exist");
@@ -257,6 +257,7 @@ void compile_formula(Window *win, const char *filename, uint dir_cluster, DirEnt
 		return;
 	}
 
+
 //		parser_print_tokens(tokens);
 
 	// Parses and compiles the formula
@@ -292,10 +293,13 @@ void compile_formula(Window *win, const char *filename, uint dir_cluster, DirEnt
 	//print_instructions(&inst);
 
 	// Loads the previous compiled binary
-	int i=3;
-	while (win->buffer[i] != '.' && i++ < 256);
-	win->buffer[i] = 0;
-	Elf *elf = elf_load(win->buffer+3, dir_cluster);
+	int i=0;
+	while (filename[i] != '.' && i++ < 256);
+	char compiled_filename[256];
+	strncpy((char*)&compiled_filename, filename, i);
+	compiled_filename[i] = 0;
+
+	Elf *elf = elf_load((char*)&compiled_filename, dir_cluster);
 
 //		printf_win(win, "Source code loaded at: %x\n", f_source.body);
 //		printf_win(win, "Compiled binary loaded at: %x\n", elf->header);

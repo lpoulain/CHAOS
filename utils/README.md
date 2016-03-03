@@ -12,6 +12,10 @@ That is the first processes.
 
 This is a basic text editor. Use Ctrl+S to save, and Ctrl+C to quit.
 
+## Font Viewer
+
+A quick programs that shows the proportional fonts supported by the system.
+
 ## Echo
 
 This is the simplest user process compiled separately. It is built by running `makefile echo` and executed by typing `run echo` in the shell.

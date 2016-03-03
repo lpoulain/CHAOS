@@ -25,6 +25,7 @@ extern int polling;
 extern void context_switch();
 extern void syscall();
 extern void memory_print(Window *);
+extern void font_viewer();
 
 // This structure holds the information specific to a
 // shell session (command history, current directory)
@@ -231,6 +232,11 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
+	if (!strcmp(win->buffer, "fonts")) {
+		font_viewer();
+		return;
+	}
+
 	if (!strncmp(win->buffer, "cc ", 3)) {
 		compile_formula(win, win->buffer+3, env->dir_cluster, env->dir_index);
 		return;
@@ -247,6 +253,7 @@ void process_command(Window *win, ShellEnv *env) {
 		win->action->puts(win, "- heap: shows what is being allocated in the heap"); win->action->putcr(win);
 		win->action->puts(win, "- cd, ls, cat: basic filesystem functions"); win->action->putcr(win);
 		win->action->puts(win, "- run [exec]: executes a file"); win->action->putcr(win);
+		win->action->puts(win, "- fonts: tests the system's proportional fonts"); win->action->putcr(win);
 		win->action->puts(win, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
 		win->action->putcr(win);
 		return;

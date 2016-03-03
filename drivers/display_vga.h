@@ -23,4 +23,7 @@ void copy_box(uint left_x, uint right_x, uint top_y, uint bottom_y, int nb_pixel
 void bitarray_copy(const unsigned char *src_org, int src_offset, int src_len,
                     unsigned char *dst_org, int dst_offset);
 
+int draw_typeface_font(unsigned char c, uint x, uint y);
+void draw_typeface_string(const unsigned char *str, uint x, uint y);
+
 #endif
