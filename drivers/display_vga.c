@@ -162,7 +162,7 @@ void draw_font(unsigned char c, uint x, uint y) {
 	}
 }
 
-int draw_typeface_font(unsigned char c, uint x, uint y) {
+int draw_proportional_font(unsigned char c, Font *font, uint x, uint y) {
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset = x % 8;
 	unsigned char *new_pixel;
@@ -170,39 +170,39 @@ int draw_typeface_font(unsigned char c, uint x, uint y) {
 	uint draw_second_byte = 1;
 	uint draw_third_byte = 1;
 
-	if (x >= 640 - 8  || offset + (*typeface->font)[c][34] <= 8) draw_second_byte = 0;
-	if (x >= 640 - 16 || offset + (*typeface->font)[c][34] <= 16) draw_third_byte = 0;
+	if (x >= 640 - 8  || offset + (*font->bitmap)[c][34] <= 8) draw_second_byte = 0;
+	if (x >= 640 - 16 || offset + (*font->bitmap)[c][34] <= 16) draw_third_byte = 0;
 
-	uint font;
+	uint character;
 	uint mask = 0;
 	unsigned char *mask_bytes = (unsigned char *)&mask;
-	unsigned char *font_bytes = (unsigned char *)&font;
-	mask_bytes[2] = (*typeface->font)[c][32];
-	mask_bytes[1] = (*typeface->font)[c][33];
+	unsigned char *character_bytes = (unsigned char *)&character;
+	mask_bytes[2] = (*font->bitmap)[c][32];
+	mask_bytes[1] = (*font->bitmap)[c][33];
 //	printf("Mask: %x\n", mask);
 	mask >>= offset;
 
-	int bottom = typeface->bottom * 2;
+	int bottom = font->bottom * 2;
 	if (y >= 480 - 12) bottom = bottom - (y - 480 + 12) * 2;
 
-	for (int i=typeface->top*2; i<bottom; i+=2) {
+	for (int i=font->top*2; i<bottom; i+=2) {
 		new_pixel = pixel + 80;
 
-		font = 0xFFFFFFFF;
-		font_bytes[2] = ~(*typeface->font)[c][i];
-		font_bytes[1] = ~(*typeface->font)[c][i+1];
-		font >>= offset;
+		character = 0xFFFFFFFF;
+		character_bytes[2] = ~(*font->bitmap)[c][i];
+		character_bytes[1] = ~(*font->bitmap)[c][i+1];
+		character >>= offset;
 
 		*pixel |= mask_bytes[2];
-		*pixel++ &= font_bytes[2];
+		*pixel++ &= character_bytes[2];
 
 		if (draw_second_byte) {
 			*pixel |= mask_bytes[1];
-			*pixel++ &= font_bytes[1];
+			*pixel++ &= character_bytes[1];
 
 			if (draw_third_byte) {
 				*pixel |= mask_bytes[0];
-				*pixel++ &= font_bytes[0];
+				*pixel++ &= character_bytes[0];
 
 			}
 		}
@@ -210,14 +210,70 @@ int draw_typeface_font(unsigned char c, uint x, uint y) {
 		pixel = new_pixel;
 	}	
 
-	return (*typeface->font)[c][34];
+	return (*font->bitmap)[c][34];
 }
 
-void draw_typeface_string(const unsigned char *str, uint x, uint y) {
-	while (*str) {
-		x += draw_typeface_font(*str, x, y);
-		str++;
-	}
+int draw_proportional_font_inside_frame(unsigned char c, Font *font, uint x, uint y, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+	// The font is outside of the frame, do nothing
+	if (left_x >= x+16 ||
+		right_x < x ||
+		top_y >= y+16 ||
+		bottom_y < y) return (*font->bitmap)[c][34];
+
+	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
+	uint offset = x % 8;
+	uint left_margin=0, right_margin=0, top_margin=0, bottom_margin=8;
+
+	// The left part needs to be left out
+	if (left_x > x) left_margin = (left_x - x);
+	if (right_x < x+16) right_margin = (x+15 - right_x);	
+
+	unsigned char *new_pixel;
+
+	uint draw_second_byte = 1;
+	uint draw_third_byte = 1;
+
+	if (x >= 640 - 8  || offset + (*font->bitmap)[c][34] <= 8) draw_second_byte = 0;
+	if (x >= 640 - 16 || offset + (*font->bitmap)[c][34] <= 16) draw_third_byte = 0;
+
+	uint character;
+	uint mask = 0;
+	unsigned char *mask_bytes = (unsigned char *)&mask;
+	unsigned char *character_bytes = (unsigned char *)&character;
+	mask_bytes[2] = (*font->bitmap)[c][32];
+	mask_bytes[1] = (*font->bitmap)[c][33];
+//	printf("Mask: %x\n", mask);
+	mask >>= offset;
+
+	int bottom = font->bottom * 2;
+	if (y >= 480 - 12) bottom = bottom - (y - 480 + 12) * 2;
+
+	for (int i=font->top*2; i<bottom; i+=2) {
+		new_pixel = pixel + 80;
+
+		character = 0xFFFFFFFF;
+		character_bytes[2] = ~(*font->bitmap)[c][i];
+		character_bytes[1] = ~(*font->bitmap)[c][i+1];
+		character >>= offset;
+
+		*pixel |= mask_bytes[2];
+		*pixel++ &= character_bytes[2];
+
+		if (draw_second_byte) {
+			*pixel |= mask_bytes[1];
+			*pixel++ &= character_bytes[1];
+
+			if (draw_third_byte) {
+				*pixel |= mask_bytes[0];
+				*pixel++ &= character_bytes[0];
+
+			}
+		}
+
+		pixel = new_pixel;
+	}	
+
+	return (*font->bitmap)[c][34];
 }
 
 void draw_edit_cursor(uint x, uint y) {

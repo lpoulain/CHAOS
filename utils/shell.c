@@ -226,7 +226,7 @@ void process_command(Window *win, ShellEnv *env) {
 		disk_ls(env->dir_cluster, env->dir_index);
 		edit(env->dir_index, env->dir_cluster, win->buffer + 5);
 
-		win->action->init(win, "Shell");
+		win->action->init(win, " Shell ");
 		win->action->cls(win);
 
 		return;
@@ -478,7 +478,7 @@ void process_char(unsigned char c, Window *win, ShellEnv *env) {
 
 void shell() {
 	Window *win = current_process->win;
-	win->action->init(win, "Shell");
+	win->action->init(win, " Shell ");
 
 	// Setup the shell environment
 	ShellEnv *env = (ShellEnv*)kmalloc(sizeof(ShellEnv));

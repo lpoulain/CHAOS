@@ -6,6 +6,7 @@
 #include "gui_screen.h"
 #include "gui_window.h"
 #include "gui_mouse.h"
+#include "font.h"
 
 //extern process processes[3];
 
@@ -34,7 +35,7 @@ void gui_redraw_frame(Window *win, uint left_x, uint right_x, uint top_y, uint b
 
 // We've reached the bottom of the window, we need to scroll everything up one line
 void gui_scroll(Window *win) {
-	copy_box(win->left_x+1, win->right_x-1, win->top_y + 10, win->cursor_y - 8, 8);
+	copy_box(win->left_x+1, win->right_x-1, win->top_y + 13, win->cursor_y - 8, 8);
 	draw_box(win->left_x+1, win->right_x-1, win->cursor_y - 7, win->cursor_y);
 	win->cursor_y -= 8;
 
@@ -43,9 +44,9 @@ void gui_scroll(Window *win) {
 }
 
 void gui_scroll_down(Window *win, uint y) {
-	uint bottom = (win->top_y + 11) + 8*((win->bottom_y-1 - (win->top_y + 11)) / 8);
-	copy_box(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, bottom, -8);
-	draw_box(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, win->top_y + 17 + y*8);
+	uint bottom = (win->top_y + 14) + 8*((win->bottom_y-1 - (win->top_y + 14)) / 8);
+	copy_box(win->left_x+1, win->right_x-1, win->top_y + 14 + y*8, bottom, -8);
+	draw_box(win->left_x+1, win->right_x-1, win->top_y + 14 + y*8, win->top_y + 20 + y*8);
 //	draw_frame(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, bottom - 8);
 //	draw_frame(win->left_x+1, win->right_x-1, win->top_y + 11 + y*8, win->top_y + 18 + y*8);
 }
@@ -81,18 +82,18 @@ void gui_remove_cursor(Window *win) {
 }
 
 void gui_draw_window_header(Window *win, int focus) {
-	draw_box(win->left_x+1, win->right_x-1, win->top_y+1, win->top_y+8);
+	draw_box(win->left_x+1, win->right_x-1, win->top_y+1, win->top_y+11);
 
 	if (focus) {
-		for (int j=win->top_y + 3; j<win->top_y + 9; j += 3) {
-			for (int i=win->left_x + 3; i<win->right_x - 1; i+=3) {
+		for (int j=win->top_y + 2; j<win->top_y + 11; j += 2) {
+			for (int i=win->left_x + 2; i<win->right_x - 1; i+=1) {
 				draw_pixel(i, j);
 			}
 		}
 	}
 
-	int len = strlen(win->title) * 8;
-	draw_string(win->title, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
+	int len = get_proportional_string_length(win->title, FONT_CHICAGO_8PT);
+	draw_proportional_string(win->title, FONT_CHICAGO_8PT, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
 }
 
 void gui_set_focus(Window *win, Window *win_old) {
@@ -129,7 +130,7 @@ void gui_init(Window *win, const char *title) {
 	for (i=win->left_x; i<win->right_x; i++) {
 		draw_pixel(i, win->top_y);
 		draw_pixel(i, win->bottom_y);
-		draw_pixel(i, win->top_y + 9);
+		draw_pixel(i, win->top_y + 12);
 	}
 
 	gui_draw_window_header(win, (window_focus == win));
@@ -149,9 +150,9 @@ void gui_init(Window *win, const char *title) {
 }
 
 void gui_cls(Window *win) {
-	draw_box(win->left_x+1, win->right_x-1, win->top_y+10, win->bottom_y-1);
+	draw_box(win->left_x+1, win->right_x-1, win->top_y+13, win->bottom_y-1);
 	win->cursor_x = win->left_x + 2;
-	win->cursor_y = win->top_y + 11;
+	win->cursor_y = win->top_y + 14;
 	win->text_end = 0;
 	gui_set_cursor(win);
 }
@@ -299,19 +300,21 @@ void gui_redraw_frame(Window *win, uint left_x, uint right_x, uint top_y, uint b
 	for (i=umax(win->left_x, left_x); i<umin(win->right_x, right_x+1); i++) {
 		if (win->top_y >= top_y && win->top_y <= bottom_y) draw_pixel(i, win->top_y);
 		if (win->bottom_y >= top_y && win->bottom_y <= bottom_y) draw_pixel(i, win->bottom_y);
-		if (win->top_y+9 >= top_y && win->top_y+9 <= bottom_y) draw_pixel(i, win->top_y + 9);
+		if (win->top_y+12 >= top_y && win->top_y+12 <= bottom_y) draw_pixel(i, win->top_y + 12);
 	}
 
 	if (window_focus == win) {
-		for (int j=umax(win->top_y + 3, top_y); j<umin(win->top_y + 9, top_y+1); j += 3) {
+		for (int j=umax(win->top_y + 3, top_y); j<umin(win->top_y + 12, top_y+1); j += 3) {
 			for (int i=umax(win->left_x + 3, left_x); i<umin(win->right_x - 1, right_x); i+=3) {
 				draw_pixel(i, j);
 			}
 		}
 	}
 
-	int len = strlen(win->title) * 8;
-	draw_string_inside_frame(win->title,
+//	int len = strlen(win->title) * 8;
+	int len = get_proportional_string_length(win->title, FONT_CHICAGO_8PT);
+	draw_proportional_string_inside_frame(win->title,
+							 FONT_CHICAGO_8PT,
 							 win->left_x + 1 + (win->right_x - win->left_x - len) / 2,
 							 win->top_y + 1,
 							 left_x, right_x, top_y, bottom_y);
@@ -328,11 +331,11 @@ void gui_redraw(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 	gui_redraw_frame(win, left_x, right_x, top_y, bottom_y);
 
 	int max_text_offset_x = (win->right_x - win->left_x) / 8;
-	int max_text_offset_y = (win->bottom_y - win->top_y) / 8;
+	int max_text_offset_y = (win->bottom_y - win->top_y - 14) / 8;
 
 	int left_text_offset = min(max(((int)left_x - (int)win->left_x) / 8, 0), max_text_offset_x);
 	int right_text_offset = min(max(((int)right_x - (int)win->left_x) / 8 + 1, 0), max_text_offset_x);
-	int top_text_offset = min(max(((int)top_y - (int)win->top_y) / 8, 0), max_text_offset_y);
+	int top_text_offset = min(max(((int)top_y - (int)win->top_y - 14) / 8, 0), max_text_offset_y);
 	int bottom_text_offset = min(max(((int)bottom_y - (int)win->top_y) / 8 + 1, 0), max_text_offset_y);
 
 	for (int j=top_text_offset; j<=bottom_text_offset; j++) {
@@ -341,7 +344,7 @@ void gui_redraw(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 
 			const unsigned char c = win->text[i + j*80];
 			if (c != 0) draw_char_inside_frame(c,
-												 2 + i*8 + win->left_x, j*8 + win->top_y + 11,
+												 2 + i*8 + win->left_x, j*8 + win->top_y + 14,
 												 left_x, right_x, top_y, bottom_y);
 		}
 
@@ -350,7 +353,7 @@ void gui_redraw(Window *win, uint left_x, uint right_x, uint top_y, uint bottom_
 
 void gui_edit_cursor(Window *win, uint x, uint y) {
 	win->cursor_x = win->left_x + 2 + x*8;
-	win->cursor_y = win->top_y + 11 + y*8;
+	win->cursor_y = win->top_y + 14 + y*8;
 	draw_edit_cursor(win->cursor_x, win->cursor_y);
 }
 
@@ -363,11 +366,11 @@ uint gui_max_y_chars(Window *win) {
 }
 
 void gui_print(Window *win, const char *text, uint x, uint y) {
-	draw_string(text, win->left_x + 2 + x*8, win->top_y + 11 + y*8);
+	draw_string(text, win->left_x + 2 + x*8, win->top_y + 14 + y*8);
 }
 
 void gui_printc(Window *win, char c, uint x, uint y) {
-	draw_font(c, win->left_x + 2 + x*8, win->top_y + 11 + y*8);
+	draw_font(c, win->left_x + 2 + x*8, win->top_y + 14 + y*8);
 }
 
 // Definition of the various windowing primitives in the GUI environment

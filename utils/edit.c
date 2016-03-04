@@ -262,7 +262,7 @@ void edit(DirEntry *current_dir, uint dir_cluster, const char *filename) {
 	editor_parse_file(env);
 
 	// Setup the window title
-	win->action->init(win, "Edit");
+	win->action->init(win, " Edit ");
 	win->action->cls(win);
 
 	// Displays the text

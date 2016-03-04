@@ -14,8 +14,7 @@ void font_viewer() {
 		if (c == '\n') exit_flag = 1;
 		else {
 			for (uint i=0; i<6; i++) {
-				set_typeface(i);
-				pos[i] += draw_typeface_font(c, pos[i] + 10, 20 * i + 10);
+				pos[i] += draw_proportional_font(c, get_font(i), pos[i] + 10, 20 * i + 10);
 			}
 		}
 

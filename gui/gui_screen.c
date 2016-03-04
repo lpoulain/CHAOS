@@ -5,6 +5,7 @@
 #include "display.h"
 #include "display_vga.h"
 #include "gui_window.h"
+#include "font.h"
 
 void draw_string(const unsigned char *str, int x, int y) {
 	int len = strlen(str);
@@ -29,6 +30,29 @@ void draw_string_inside_frame(const unsigned char *str, int x, int y, uint left_
 		draw_font_inside_frame(str[i], x, y, left_x, right_x, top_y, bottom_y);
 		x += 8;
 	}
+}
+
+void draw_proportional_string_inside_frame(const unsigned char *str, uint8 font_idx, int x, int y, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+	int len = strlen(str);
+
+	for (int i=0; i<len; i++) {
+		x += draw_proportional_font_inside_frame(str[i], get_font(font_idx), x, y, left_x, right_x, top_y, bottom_y);
+	}
+
+}
+
+void draw_proportional_string(const unsigned char *str, uint8 font_idx, uint x, uint y) {
+	while (*str) {
+		x += draw_proportional_font(*str++, get_font(font_idx), x, y);
+	}
+}
+
+int get_proportional_string_length(const unsigned char *str, uint8 font_idx) {
+	int res = 0;
+	Font *font = get_font(font_idx);
+	while (*str) res += (int)(*font->bitmap)[*str++][34];
+
+	return res;
 }
 
 void draw_char(unsigned char c, int x, int y) {
