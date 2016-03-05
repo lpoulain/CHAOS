@@ -85,12 +85,14 @@ void gui_draw_window_header(Window *win, int focus) {
 	draw_box(win->left_x+1, win->right_x-1, win->top_y+1, win->top_y+11);
 
 	if (focus) {
-		for (int j=win->top_y + 2; j<win->top_y + 11; j += 2) {
+		for (int j=win->top_y + 3; j<win->top_y + 11; j += 2) {
 			for (int i=win->left_x + 2; i<win->right_x - 1; i+=1) {
 				draw_pixel(i, j);
 			}
 		}
 	}
+
+	draw_proportional_font(127, get_font(FONT_CHICAGO_8PT), win->left_x + 7, win->top_y + 1);
 
 	int len = get_proportional_string_length(win->title, FONT_CHICAGO_8PT);
 	draw_proportional_string(win->title, FONT_CHICAGO_8PT, win->left_x + 1 + (win->right_x - win->left_x - len) / 2, win->top_y + 1);
@@ -221,28 +223,9 @@ void gui_puti(Window *win, uint nb) {
 }
 
 void gui_putnb(Window *win, int nb) {
-	if (nb < 0) {
-		win->action->putc(win, '-');
-		nb = -nb;
-	}
-	uint nb_ref = 1000000000;
-	uint leading_zero = 1;
-	uint digit;
-
-	for (int i=0; i<=9; i++) {
-		if (nb >= nb_ref) {
-			digit = nb / nb_ref;
-			win->action->putc(win, '0' + digit);
-			nb -= nb_ref * digit;
-
-			leading_zero = 0;
-		} else {
-			if (!leading_zero) win->action->putc(win, '0');
-		}
-		nb_ref /= 10;
-	}
-
-	if (leading_zero) win->action->putc(win, '0');
+	char tmp[12];
+	itoa(nb, (char*)&tmp);
+	win->action->puts(win, tmp);
 }
 
 void gui_putnb_right(Window *win, int nb) {
@@ -400,7 +383,7 @@ struct WindowAction gui_window_action = {
 Window gui_win1 = {
 	.left_x = 150,
 	.right_x = 600,
-	.top_y = 30,
+	.top_y = 150,
 	.bottom_y = 200,
 	.action = &gui_window_action
 };

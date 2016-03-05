@@ -100,7 +100,6 @@ void draw_font_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 		top_y >= y+8 ||
 		bottom_y < y) return;
 
-	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset_left = x % 8;
 	uint offset_right = 8 - offset_left;
 	uint left_margin=0, right_margin=0, top_margin=0, bottom_margin=8;
@@ -109,13 +108,7 @@ void draw_font_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 	// The left part needs to be left out
 	if (left_x > x) left_margin = (left_x - x);
 	if (right_x < x+8) right_margin = (x+7 - right_x);
-/*
-	debug_i("x: ", x);
-	debug_i("left_x: ", left_x);
-	debug_i("right_x: ", right_x);
-	debug_i("Left margin: ", left_margin);
-	debug_i("Right margin: ", right_margin);
-*/
+
 	if (left_margin > 8-offset_left) {
 		mask_left = ~(0xFF >> (offset_left + 8));
 		mask_left_bis = 0xFF >> (offset_left + 8);
@@ -133,14 +126,20 @@ void draw_font_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 //		debug("Scenario #3");
 	}
 
+//	printf("left_m: %d, right_m: %d, mask: %x\n", left_margin, right_margin, mask_right);
+
+
 	top_margin = umax(y, top_y) - y;
 	bottom_margin = umin(y+7, bottom_y) - y;
+
+	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*(y+top_margin) + x/8);
+
 	uint c_idx = c;
 	for (int i=top_margin; i<=bottom_margin; i++) {
 		*pixel &= mask_left;
 		*pixel++ |= (~font[c_idx][i] >> offset_left) & mask_left_bis;
 		*pixel &= mask_right;
-		*pixel++ |= (~font[c_idx][i] << offset_right);
+		*pixel++ |= (~font[c_idx][i] << offset_right + right_margin);
 		pixel += 78;
 	}
 }

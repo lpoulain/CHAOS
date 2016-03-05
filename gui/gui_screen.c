@@ -126,6 +126,10 @@ void draw_ptr(void *ptr, int x, int y) {
 }
 
 int draw_int(int nb, int x, int y) {
+	char tmp[12];
+	itoa(nb, (char*)&tmp);
+	draw_string(tmp, x, y);
+/*
 	int nb_chars = 0;
 	if (nb < 0) {
 		draw_font('-', x, y);
@@ -155,8 +159,8 @@ int draw_int(int nb, int x, int y) {
 		}
 		nb_ref /= 10;
 	}	
-
-	return nb_chars;
+*/
+	return strlen(tmp);
 }
 
 
@@ -260,6 +264,10 @@ void gui_debug_puti(Window *win, uint nb) {
 }
 
 void gui_debug_putnb(Window *win, int nb) {
+	char tmp[12];
+	itoa(nb, (char*)&tmp);
+	win->action->puts(win, tmp);
+	/*	
 	if (nb < 0) {
 		win->action->putc(win, '-');
 		nb = -nb;
@@ -279,7 +287,7 @@ void gui_debug_putnb(Window *win, int nb) {
 			if (!leading_zero) win->action->putc(win, '0');
 		}
 		nb_ref /= 10;
-	}
+	}*/
 }
 
 void gui_debug_putnb_right(Window *win, int nb) {
