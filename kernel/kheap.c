@@ -29,3 +29,7 @@ void kfree(void *ptr) {
 void kheap_print(Window *win) {
 	heap_print(win, &kheap);
 }
+
+void kheap_check_for_corruption() {
+	heap_check_for_corruption(&kheap);
+}

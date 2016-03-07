@@ -306,7 +306,7 @@ void C_stack_dump(void *esp, void *ebp) {
         ptr = (uint)(*(uint*)ptr);
     }
 
-    dump_mem(esp, 320, 14);
+//    dump_mem(esp, 320, 14);
     for (;;);    
 }
 

@@ -7,5 +7,6 @@ void *kmalloc_pages(uint, const char *);
 void *kmalloc(uint);
 void kfree(void*);
 void kheap_print(Window *);
+void kheap_check_for_corruption();
 
 extern Heap kheap;

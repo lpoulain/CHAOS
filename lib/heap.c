@@ -78,9 +78,23 @@ void check_heap_entry(HeapHeader *header) {
 
     if (footer->magic != HEAP_MAGIC) {
         printf("Heap entry at %x corrupted - invalid footer magic number\n", header);
+        OK = 0;
     }
 
     if (!OK) {
+        stack_dump();
+        for (;;);
+    }
+}
+
+void heap_check_for_corruption(Heap *h) {
+    HeapHeader *header = (HeapHeader*)h->start;
+    while (header >= (HeapHeader*)h->start && header < (HeapHeader*)h->end) {
+        check_heap_entry(header);
+        header = (HeapHeader*)((uint)header + header->size + sizeof(HeapHeader) + sizeof(HeapFooter));
+    }
+    if ((uint)header != h->end) {
+        printf("Error: last entry corrupted\n");
         stack_dump();
         for (;;);
     }

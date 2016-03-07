@@ -15,6 +15,8 @@ Line *new_line(Line *previous_line) {
 	Line *line = (Line*)kmalloc(sizeof(Line));
 	line->text[0] = 0;
 	line->length = 0;
+	line->next = 0;
+	// If there is a previous line
 	if (previous_line) {
 		// If the previous line has a new line, insert the new line between the two
 		if (previous_line->next != 0) {
@@ -293,6 +295,5 @@ void edit(DirEntry *current_dir, uint dir_cluster, const char *filename) {
 	}
 	kfree(env->file->body);
 	kfree(env->file);
-	kfree(env->dir_index);
 	kfree(env);
 }

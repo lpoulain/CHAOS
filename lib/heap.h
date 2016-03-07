@@ -23,4 +23,6 @@ void heap_print(Window *, Heap *);
 void *malloc(uint);
 void free(void*);
 
+void heap_check_for_corruption(Heap *h);
+
 #endif // KHEAP_H
