@@ -23,8 +23,8 @@ uint nb_frames;
 
 // This page is used whenever someone tries to access a page which
 // is not mapped or forbidden
-void *forbidden_page;
-
+char test[1024];
+char *forbidden_page;
 
 static void page_fault(registers_t reg);
 
@@ -175,6 +175,18 @@ char forbidden_page_motif[177] ="\
    \"VUUUUUV\"    \
                 ";
 
+extern Window gui_debug_win;
+
+void check_forbidden_page() {
+    if (!strncmp(forbidden_page, (char*)&forbidden_page_motif, 177)) {
+        printf("Forbidden page changed (%x)\n", forbidden_page);
+        dump_mem(forbidden_page, 320, 14);
+        kheap_print(&gui_debug_win);
+//        stack_dump();
+        for(;;);
+    }
+}
+
 void init_virtualmem()
 {
     // The size of physical memory. For the moment we 
@@ -190,6 +202,7 @@ void init_virtualmem()
 
     // Initializes the forbidden page
     forbidden_page = kmalloc_pages(1, "Forbidden page");
+
     for (int i=0; i<23; i++) memcpy(forbidden_page + i*176, forbidden_page_motif, 176);
     memcpy(forbidden_page + 4048, forbidden_page_motif, 48);
 

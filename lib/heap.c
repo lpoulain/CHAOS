@@ -275,7 +275,8 @@ void *heap_alloc_pages(uint nb_requested_pages, const char *name, Heap *h) {
         if (idx->nb_pages == nb_requested_pages) {
             idx->occupied = 1;
             idx->name = (uint)name - (uint)&rodata;
-            uint page_idx = ((uint)candidate - h->page_index_start) / sizeof(HeapPageIndex);
+            uint page_idx = ((uint)idx - h->page_index_start) / sizeof(HeapPageIndex);
+
             return (void*)(h->page_start + 0x1000 * page_idx);
         }
 
@@ -306,6 +307,7 @@ void *heap_alloc_pages(uint nb_requested_pages, const char *name, Heap *h) {
     candidate->name = (uint)name - (uint)&rodata;
 
     uint page_idx = ((uint)candidate - h->page_index_start) / sizeof(HeapPageIndex);
+
     return (void*)(h->page_start + 0x1000 * page_idx);
 }
 
@@ -353,7 +355,7 @@ void heap_free_pages(uint ptr, Heap *h) {
 void heap_print(Window *win, Heap *h) {
 
 //    printf("%x-%x / %x-%x (%d pages)\n", h->page_index_start, h->page_index_end, h->page_start, h->page_end, h->nb_pages);
-    printf_win(win, "Small objects:\n");
+    printf_win(win, "Small objects (%x -> %x):\n", h->start, h->end);
     HeapHeader *header = (HeapHeader*)h->start;
     HeapFooter *footer = (HeapFooter*)(h->start + sizeof(HeapHeader) + header->size);
     HeapHeader *candidate, *next_header;
@@ -365,7 +367,7 @@ void heap_print(Window *win, Heap *h) {
         header = (HeapHeader*)((uint)header + header->size + sizeof(HeapHeader) + sizeof(HeapFooter));
     }
 
-    printf_win(win, "Page blocks:\n");
+    printf_win(win, "Page blocks (%x -> %x):\n", h->page_start, h->page_end);
     HeapPageIndex *idx = (HeapPageIndex*)h->page_index_start;
     uint start, end;
 
