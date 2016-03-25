@@ -30,6 +30,7 @@ uint8 *ARP_get_MAC(uint ipv4) {
 	for (int i=0; i<nb_ARP_entries; i++) {
 		if (ARP_table[i].ipv4 == ipv4) return (uint8*)&ARP_table[i].MAC;
 	}
+	printf("No MAC for %x\n", ipv4);
 	return 0;
 }
 
@@ -44,21 +45,22 @@ void ARP_add_MAC(uint ipv4, uint8 *MAC) {
 		}
 	}
 
+	ARP_table[nb_ARP_entries].ipv4 = ipv4;
 	for (int j=0; j<6; j++)
 		ARP_table[nb_ARP_entries].MAC[j] = MAC[j];
 
 	nb_ARP_entries++;
 
 	uint8 *ip = (uint8*)&ipv4;
-	printf("%d,%d,%d,%d => %X:%X:%X:%X:%X:%X\n",
+/*	printf("%d,%d,%d,%d => %X:%X:%X:%X:%X:%X\n",
 		   ip[0], ip[1], ip[2], ip[3],
-		   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
+		   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);*/
 }
 
 uint8 *ARP_send_packet(uint ipv4) {
 	// Get an Ethernet packet
 	uint16 offset;
-	uint8 *buffer = ethernet_create_packet(ETHERNET_ARP, ipv4, ARP_HEADER_SIZE + 18, &offset);
+	uint8 *buffer = ethernet_create_packet(ETHERNET_ARP, 0xFFFFFFFF, ARP_HEADER_SIZE + 18, &offset);
 
 	// Append the IPv4 header
 	ARPPacket *header = (ARPPacket*)(buffer + offset);
@@ -86,7 +88,7 @@ void ARP_receive_packet(uint8 *buffer) {
 
 void init_ARP() {
 	memset(&ARP_table, 0, sizeof(ARP_table));
-	ARP_table[0].ipv4 = 0xFFFF;
+	ARP_table[0].ipv4 = 0xFFFFFFFF;
 	for (int i=0; i<6; i++)
 		ARP_table[0].MAC[i] = 0xFF;
 	nb_ARP_entries = 1;

@@ -192,7 +192,6 @@ void DHCP_receive_packet(uint8* buffer, uint16 size) {
 	// We want to fill the ARP table to get
 	// the MAC address of the router
 	if (network->router_IPv4 != 0) {
-		printf("Sending ARP request\n");
 		ARP_send_packet(network->router_IPv4);
 	}
 }

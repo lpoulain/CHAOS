@@ -19,12 +19,13 @@ uint8 *ethernet_create_packet(uint16 protocol, uint ipv4, uint16 size, uint16 *o
 	uint8 *buffer = (uint8*)kmalloc(size);
 	memset(buffer, 0, size);
 
-	uint8 *MAC = network_get_MAC();
+	uint8 *MAC_src = network_get_MAC();
+	uint8 *MAC_dst = ARP_get_MAC(ipv4);
 
 	EthernetHeader *header = (EthernetHeader*)buffer;
 	for (int i=0; i<6; i++) {
-		header->dest[i] = 0xFF;
-		header->src[i] = MAC[i];
+		header->dest[i] = MAC_dst[i];
+		header->src[i] = MAC_src[i];
 	}
 	header->type = protocol;
 
