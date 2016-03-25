@@ -198,68 +198,21 @@ void gui_putc(Window *win, char c) {
 }
 
 void gui_puti(Window *win, uint nb) {
-	unsigned char *addr = (unsigned char *)&nb;
-	char str_[11];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[10] = 0;
-
-	char *loc = str+1;
-
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	addr += 3;
-
-	for (int i=0; i<4; i++) {
-		unsigned char b = *addr--;
-		int u = ((b & 0xf0) >> 4);
-		int l = (b & 0x0f);
-		*++loc = key[u];
-		*++loc = key[l];
-	}
-
-	win->action->puts(win, str);
+	unsigned char str[11];
+	itoa_hex_0x(nb, (unsigned char *)&str);
+	win->action->puts(win, (unsigned char *)&str);
 }
 
 void gui_putnb(Window *win, int nb) {
 	char tmp[12];
 	itoa(nb, (char*)&tmp);
-	win->action->puts(win, tmp);
+	win->action->puts(win, (unsigned char *)tmp);
 }
 
 void gui_putnb_right(Window *win, int nb) {
 	char number[12];
-	uint negative = 0;
-	number[11] = 0;
-	number[0] = ' ';
-
-	if (nb < 0) {
-		negative = 1;
-		nb = -nb;
-	}
-	uint nb_ref = 1000000000;
-	uint leading_zero = 1;
-	uint digit;
-
-	for (int i=0; i<=9; i++) {
-		if (nb >= nb_ref) {
-			digit = nb / nb_ref;
-			number[i+1] = '0' + digit;
-			nb -= nb_ref * digit;
-
-			if (!leading_zero && negative) number[i] = '-';
-			leading_zero = 0;
-		} else {
-			if (!leading_zero) number[i+1] = '0';
-			else number[i+1] = ' ';
-		}
-		nb_ref /= 10;
-	}
-
-	if (leading_zero) number[10] = '0';
-
-	gui_puts(win, number);
+	itoa_right(nb, (unsigned char *)&number);
+	win->action->puts(win, (unsigned char *)&number);
 }
 
 void gui_backspace(Window *win) {
@@ -383,7 +336,7 @@ struct WindowAction gui_window_action = {
 Window gui_win1 = {
 	.left_x = 150,
 	.right_x = 600,
-	.top_y = 150,
+	.top_y = 20,
 	.bottom_y = 200,
 	.action = &gui_window_action
 };

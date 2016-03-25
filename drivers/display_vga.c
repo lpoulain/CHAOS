@@ -213,11 +213,13 @@ int draw_proportional_font(unsigned char c, Font *font, uint x, uint y) {
 }
 
 int draw_proportional_font_inside_frame(unsigned char c, Font *font, uint x, uint y, uint left_x, uint right_x, uint top_y, uint bottom_y) {
+	int font_size = (*font->bitmap)[c][34];
+
 	// The font is outside of the frame, do nothing
-	if (left_x >= x+16 ||
+	if (left_x >= x+font_size ||
 		right_x < x ||
 		top_y >= y+16 ||
-		bottom_y < y) return (*font->bitmap)[c][34];
+		bottom_y < y) return font_size;
 
 	unsigned char *pixel = (char*)(VGA_ADDRESS + 80*y + x/8);
 	uint offset = x % 8;
@@ -241,18 +243,29 @@ int draw_proportional_font_inside_frame(unsigned char c, Font *font, uint x, uin
 	unsigned char *character_bytes = (unsigned char *)&character;
 	mask_bytes[2] = (*font->bitmap)[c][32];
 	mask_bytes[1] = (*font->bitmap)[c][33];
+
+	// Frame_mask is the mask to make sure we don't step out of the frame
+	uint frame_mask = 0xFFFFFFFF;
+	if (left_x > x) frame_mask &= (0xFFFFFFFF >> (8 + left_x - x));
+	if (right_x < x + 15) frame_mask &= (0xFFFFFFFF << (8 + 15 + x - right_x));
+
+	mask &= frame_mask;
 //	printf("Mask: %x\n", mask);
 	mask >>= offset;
 
 	int bottom = font->bottom * 2;
 	if (y >= 480 - 12) bottom = bottom - (y - 480 + 12) * 2;
 
-	for (int i=font->top*2; i<bottom; i+=2) {
+	top_margin = umax(y, top_y) - y;
+	bottom_margin = umin(y+(font->bottom - font->top), bottom_y) - y;
+
+	for (int i=font->top*2; i<bottom_margin*2; i+=2) {
 		new_pixel = pixel + 80;
 
 		character = 0xFFFFFFFF;
 		character_bytes[2] = ~(*font->bitmap)[c][i];
 		character_bytes[1] = ~(*font->bitmap)[c][i+1];
+		character |= ~frame_mask;
 		character >>= offset;
 
 		*pixel |= mask_bytes[2];
@@ -265,14 +278,13 @@ int draw_proportional_font_inside_frame(unsigned char c, Font *font, uint x, uin
 			if (draw_third_byte) {
 				*pixel |= mask_bytes[0];
 				*pixel++ &= character_bytes[0];
-
 			}
 		}
 
 		pixel = new_pixel;
 	}	
 
-	return (*font->bitmap)[c][34];
+	return font_size;
 }
 
 void draw_edit_cursor(uint x, uint y) {
@@ -347,7 +359,129 @@ void save_mouse_cursor_buffer(uint x, uint y) {
 	}
 }
 
+uint invert_endian(uint num) {
+	uint b0,b1,b2,b3;
+
+	b0 = (num & 0x000000ff) << 24u;
+	b1 = (num & 0x0000ff00) << 8u;
+	b2 = (num & 0x00ff0000) >> 8u;
+	b3 = (num & 0xff000000) >> 24u;	
+
+	return b0 | b1 | b2 | b3;
+}
+
+// This function is used if the left and right of the box are in the same 32-bit block
+void draw_background_thin(uint start_x, uint start_offset, uint end_offset, int top_y, int bottom_y, uint *pixels, uint is_even) {
+	uint bg_value[2];
+	int j, bg_idx = 0;
+
+	bg_value[0] = 0xAAAAAAAA;
+	if (is_even == 0) {
+		bg_value[0] = 0x55555555;
+	}
+	bg_value[1] = ~bg_value[0];
+
+	uint mask = (0xFFFFFFFF >> start_offset) << (32 - end_offset);
+	bg_value[0] &= mask;
+	bg_value[1] &= mask;
+	mask = ~mask;
+	mask = invert_endian(mask);
+	bg_value[0] = invert_endian(bg_value[0]);
+	bg_value[1] = invert_endian(bg_value[1]);
+	
+
+	for (j=top_y; j<=bottom_y; j++) {
+
+		*pixels &= mask;
+		*pixels |= bg_value[bg_idx];
+
+		pixels += 20;
+
+		bg_idx = 1 - bg_idx;
+	}
+}
+
 void draw_background(int left_x, int right_x, int top_y, int bottom_y) {
+	int i, j;
+
+	// We don't want to go pixel by pixel, it would be too slow
+	// So let's map this 32 pixels at a time as we're running 32-bit code
+	uint *pixels = (uint*)(VGA_ADDRESS) + 20*top_y + left_x/32;
+	char *pixel = (char*)pixels;
+	uint *new_pixels;
+
+	uint start_x = left_x / 32;
+	uint start_offset = left_x % 32;
+//	if (start_offset == 0) start_x--;
+	uint end_x = right_x / 32 + 1;
+	uint end_offset = right_x % 32;
+
+	if (start_x == end_x - 1) {
+		draw_background_thin(start_x, start_offset, end_offset, top_y, bottom_y, pixels, left_x + top_y % 2);
+		return;
+	}
+
+	uint bg_value = 0xAAAAAAAA, bg_left[2], bg_right[2];
+	if (left_x + top_y % 2 == 0) {
+		bg_value = 0x55555555;
+	}
+	bg_left[0] = bg_value;
+	bg_right[0] = bg_value;
+	bg_left[1] = ~bg_left[0];
+	bg_right[1] = ~bg_right[0];
+
+	uint mask_left = 0xFFFFFFFF;
+	uint mask_right = 0xFFFFFFFF;
+	uint bg_idx = 0;
+
+	mask_left >>= start_offset;
+	bg_left[0] &= mask_left;
+	bg_left[1] &= mask_left;
+	mask_left = ~mask_left;
+	mask_right <<= (32 - end_offset);
+	bg_right[0] &= mask_right;
+	bg_right[1] &= mask_right;
+	mask_right = ~mask_right;
+
+	// Because mask_left, bg_left, mask_right and bg_right are stored in Little Endian format
+	// we need to invert the bytes
+	mask_left = invert_endian(mask_left);
+	mask_right = invert_endian(mask_right);
+	bg_left[0] = invert_endian(bg_left[0]);
+	bg_left[1] = invert_endian(bg_left[1]);
+	bg_right[0] = invert_endian(bg_right[0]);
+	bg_right[1] = invert_endian(bg_right[1]);
+	printf("%d %x %x\n", start_offset, mask_left, bg_left[0]);
+
+	// For each line of the window
+	for (j=top_y; j<=bottom_y; j++) {
+		new_pixels = pixels + 20;
+
+		// Fills the first 32-block of the window
+		if (start_offset > 0) {
+			*pixels &= mask_left;
+			*pixels++ |= bg_left[bg_idx];
+		}
+
+		// Fills the content, 32 pixels at a time
+		for (i=start_x+1; i<end_x-1; i++) {
+			*pixels++ = bg_value;
+		}
+		
+		// Fills the last 32-block of the window
+		if (end_offset > 0) {
+			*pixels &= mask_right;
+			*pixels |= bg_right[bg_idx];
+		}
+
+		// Get ready for the next line
+		pixels = new_pixels;
+		bg_value = ~bg_value;
+		bg_idx = 1 - bg_idx;		
+	}	
+}
+
+void draw_background_old(int left_x, int right_x, int top_y, int bottom_y) {
 	int i, j;
 
 	// We don't want to go pixel by pixel, it would be too slow

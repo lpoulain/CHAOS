@@ -129,6 +129,96 @@ void itoa(int nb, char *str) {
     *str = 0;
 }
 
+void itoa_right(int nb, char *number) {
+    uint negative = 0;
+    number[11] = 0;
+    number[0] = ' ';
+
+    if (nb < 0) {
+        negative = 1;
+        nb = -nb;
+    }
+    uint nb_ref = 1000000000;
+    uint leading_zero = 1;
+    uint digit;
+
+    for (int i=0; i<=9; i++) {
+        if (nb >= nb_ref) {
+            digit = nb / nb_ref;
+            number[i+1] = '0' + digit;
+            nb -= nb_ref * digit;
+
+            if (!leading_zero && negative) number[i] = '-';
+            leading_zero = 0;
+        } else {
+            if (!leading_zero) number[i+1] = '0';
+            else number[i+1] = ' ';
+        }
+        nb_ref /= 10;
+    }
+
+    if (leading_zero) number[10] = '0';
+}
+
+/*
+void itoa_hex_2(char b, int x, int y) {
+    char str_[5];
+    char *str = (char*)&str_;
+    str[0] = '0';
+    str[1] = 'x';
+    str[4] = 0; 
+    char* loc = str++; //offset since beginning has 0x
+    
+    char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+    int u = ((b & 0xf0) >> 4);
+    int l = (b & 0x0f);
+    *++str = key[u];
+    *++str = key[l];
+
+    //*++str = '\n'; //newline
+    draw_string(loc, x, y);
+}*/
+
+
+char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+void _itoa_hex(uint nb, int nb_bytes, unsigned char *str) {
+
+    unsigned char *addr = (unsigned char *)&nb + (nb_bytes -1);
+
+    for (int i=0; i<nb_bytes; i++) {
+        unsigned char b = *addr--;
+        int u = ((b & 0xf0) >> 4);
+        int l = (b & 0x0f);
+        *str++ = key[u];
+        *str++ = key[l];
+    }
+
+    *str = 0;
+}
+
+void itoa_hex(uint nb, unsigned char *str) {
+    _itoa_hex(nb, 4, str);
+}
+
+void itoa_hex_0x(uint nb, unsigned char *str) {
+    *str++ = '0';
+    *str++ = 'x';
+    _itoa_hex(nb, 4, str);
+}
+
+void ctoa_hex(char c, unsigned char *str) {
+    _itoa_hex((uint)c, 1, str);
+}
+
+void ctoa_hex_0x(char c, unsigned char *str) {
+    *str++ = '0';
+    *str++ = 'x';
+    _itoa_hex((uint)c, 1, str);
+}
+
+
 uint atoi_hex(char *str) {
     uint result = 0, mult = 1;
     int len = strlen(str)-1;
@@ -167,6 +257,17 @@ int max(int nb1, int nb2) {
     return nb2;
 }
 
+uint16 switch_endian16(uint16 nb) {
+    return (nb>>8) | (nb<<8);
+}
+
+uint switch_endian32(uint nb) {
+    return ((nb>>24)&0xff)      |
+           ((nb<<8)&0xff0000)   |
+           ((nb>>8)&0xff00)     |
+           ((nb<<24)&0xff000000);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 // Debug functions
 ///////////////////////////////////////////////////////////////////////////////////
@@ -186,6 +287,7 @@ void debug_i(char *msg, uint nb) {
 void _printf(Window *win, const char *format, va_list args) {
     int x = 0;
     char *str;
+    char tmp[3];
 
     for (; *format != 0; ++format) {
         if (*format == '\n') {
@@ -208,6 +310,10 @@ void _printf(Window *win, const char *format, va_list args) {
                     win->action->puti(win, va_arg(args, unsigned int));
 /*                    draw_ptr(va_arg(args, unsigned int), x, debug_pos);
                     x += 10*8;*/
+                    break;
+                case 'X':
+                    ctoa_hex(va_arg(args, unsigned int), (unsigned char*)&tmp);
+                    win->action->puts(win, tmp);
                     break;
             }
         }
@@ -307,7 +413,7 @@ void C_stack_dump(void *esp, void *ebp) {
     }
 
 //    dump_mem(esp, 320, 14);
-    for (;;);    
+//    for (;;);    
 }
 
 char ascii[256] = {

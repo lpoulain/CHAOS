@@ -18,6 +18,11 @@ int strncmp(const char *s1, const char *s2, uint n);
 uint atoi_hex(char *str);
 int atoi(char *str);
 void itoa(int, char*);
+void itoa_right(int nb, char *number);
+void itoa_hex(uint nb, unsigned char *str);
+void itoa_hex_0x(uint nb, unsigned char *str);
+void ctoa_hex(char c, unsigned char *str);
+void ctoa_hex_0x(char c, unsigned char *str);
 
 void printf(const char *format, ...);
 
@@ -32,6 +37,9 @@ void lmemcpy(uint *dest, const uint *src, uint len);
 void lmemset(uint *dest, uint val, uint len);
 void text_dump_mem(void *ptr, int nb_bytes, int row);
 void gui_dump_mem(void *ptr, int nb_bytes, int row);
+
+uint16 switch_endian16(uint16 nb);
+uint switch_endian32(uint nb);
 
 unsigned char getch();
 

@@ -235,6 +235,13 @@ void init_virtualmem()
         map_page(addr, addr, 1, 1);
     }
 
+    map_page(0xF0000000, 0xF0000000, 1, 1);
+    map_page(0xF0001000, 0xF0001000, 1, 1);
+    map_page(0xF0002000, 0xF0002000, 1, 1);
+    map_page(0xF0003000, 0xF0003000, 1, 1);
+    map_page(0xF0004000, 0xF0004000, 1, 1);
+    map_page(0xF0005000, 0xF0005000, 1, 1);
+
 /*    while (addr < 0x1000000)
     {
         // Kernel code is readable but not writeable from userspace.
@@ -452,8 +459,8 @@ static void page_fault(registers_t regs)
     if (reserved) {printf("reserved ");}
     printf(") at [%x] \n", faulting_address);
 
-//    stack_dump();
-    C_stack_dump((void*)regs.esp, (void*)regs.ebp);
+    stack_dump();
+//    C_stack_dump((void*)regs.esp, (void*)regs.ebp);
 //    for (;;);
     // Maps to the forbidden page
     map_forbidden(faulting_address & 0xFFFFF000);

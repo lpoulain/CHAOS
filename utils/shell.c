@@ -12,6 +12,9 @@
 #include "debug.h"
 #include "debug_info.h"
 #include "elf.h"
+#include "pci.h"
+#include "dhcp.h"
+#include "network.h"
 
 #define DISK_ERR_DOES_NOT_EXIST	-2
 
@@ -67,6 +70,7 @@ typedef void (*function)(int, char **);
 #define asm_rdmsr(reg) ({uint low,high;asm volatile("rdmsr":"=a"(low),"=d"(high):"c"(reg));low|((uint)high<<32);})
 #define asm_wrmsr(reg,val) do{asm volatile("wrmsr"::"a"((uint)val),"d"((uint)((uint)val)),"c"(reg));}while(0)
 extern void syscall_handler2();
+extern void draw_background(int left_x, int right_x, int top_y, int bottom_y);
 
 uint dump_mem_addr = 0;
 
@@ -237,6 +241,32 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
+	if (!strcmp(win->buffer, "pci")) {
+		PCIDevice *devices = PCI_get_devices();
+		while (devices) {
+			printf_win(win,
+					   "Bus %d Slot %d IRQ %d [%s]: %s\n",
+					   devices->bus, devices->slot, devices->IRQ, devices->vendor_name, devices->device_name);
+			devices = devices->next;
+		}
+		return;
+	}
+
+	if (!strcmp(win->buffer, "ifconfig")) {
+		Network *network = network_get_info();
+
+		printf_win(win, "MAC Address:     %X:%X:%X:%X:%X:%X\n", network->MAC[0], network->MAC[1], network->MAC[2], network->MAC[3], network->MAC[4], network->MAC[5]);
+		uint8 *ip = (uint8*)&network->IPv4;
+		printf_win(win, "Your IP address: %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+		ip = (uint8*)&network->router_IPv4;
+		printf_win(win, "Gateway:         %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+		ip = (uint8*)&network->dns;
+		printf_win(win, "DNS Server:      %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+		ip = (uint8*)&network->subnet_mask;
+		printf_win(win, "Subnet mask:     %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+		return;
+	}
+
 	if (!strncmp(win->buffer, "cc ", 3)) {
 		compile_formula(win, win->buffer+3, env->dir_cluster, env->dir_index);
 		return;
@@ -373,6 +403,21 @@ void process_command(Window *win, ShellEnv *env) {
 		win->action->putcr(win);
 		win->action->puts(win, "Syntax error");
 		win->action->putcr(win);
+		parser_memory_cleanup(tokens);
+		return;
+	}
+
+	if (tokens->code == PARSE_WORD && !strcmp(tokens->value, "bg") &&
+		tokens->next != 0 && tokens->next->code == PARSE_NUMBER &&
+		tokens->next->next != 0 && tokens->next->next->code == PARSE_NUMBER &&
+		tokens->next->next->next != 0 && tokens->next->next->next->code == PARSE_NUMBER &&
+		tokens->next->next->next->next != 0 && tokens->next->next->next->code == PARSE_NUMBER) {
+
+		draw_background((int)tokens->next->value,
+						(int)tokens->next->next->value,
+						(int)tokens->next->next->next->value,
+						(int)tokens->next->next->next->next->value);
+
 		parser_memory_cleanup(tokens);
 		return;
 	}

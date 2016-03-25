@@ -60,82 +60,32 @@ void text_cls(Window *win) {
 
 // Prints a character in hex format, starting with the "0x"
 void text_print_hex(char b, int row, int col) {
-	char str_[5];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[4] = 0;	
-	char* loc = str++; //offset since beginning has 0x
-	
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	int u = ((b & 0xf0) >> 4);
-	int l = (b & 0x0f);
-	*++str = key[u];
-	*++str = key[l];
-
-	//*++str = '\n'; //newline
-	text_print(loc, row, col, YELLOW_ON_BLACK);
+	unsigned char str[5];
+	ctoa_hex_0x(b, (unsigned char *)&str);	
+	text_print((unsigned char*)&str, row, col, YELLOW_ON_BLACK);
 }
 
 // Prints a character in hex format, without the "0x"
 void text_print_hex2(char b, int row, int col) {
-	char str_[3];
-	char *str = (char*)&str_;
-	str[2] = 0;	
-	char* loc = str; //offset since beginning has 0x
-	
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	int u = ((b & 0xf0) >> 4);
-	int l = (b & 0x0f);
-	*str++ = key[u];
-	*str++ = key[l];
-
-	//*++str = '\n'; //newline
-	text_print(loc, row, col, YELLOW_ON_BLACK);
+	unsigned char str[3];
+	ctoa_hex(b, (unsigned char *)&str);
+	text_print((unsigned char *)&str, row, col, YELLOW_ON_BLACK);
 }
 
 // Prints the value of a pointer (in hex) at a particular
 // row and column on the screen
 void text_print_ptr(void *ptr, int row, int col) {
-	unsigned char *addr = (unsigned char *)&ptr;
-	char str_[11];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[10] = 0;
-	char *loc = str++;
-
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	addr += 3;
-
-	for (int i=0; i<4; i++) {
-		unsigned char b = *addr--;
-		int u = ((b & 0xf0) >> 4);
-		int l = (b & 0x0f);
-		*++str = key[u];
-		*++str = key[l];
-	}
-
-	text_print(loc, row, col, YELLOW_ON_BLACK);
+	unsigned char str[11];
+	itoa_hex_0x((uint)ptr, (unsigned char *)&str);
+	text_print((unsigned char *)&str, row, col, YELLOW_ON_BLACK);
 }
 
 // Prints an integer at a particular row and column
 // on the screen
-void text_print_int(int n, int row, int col) { 
-	char *str = "           ";
-	char *loc = str;
-
-	if (n == 0) *loc++ = '0';
-
-    while( n > 0 ) {
-    	*loc++ = '0' + (n % 10);
-    	n /= 10;
-    }
-
-    text_print(str, row, col, YELLOW_ON_BLACK);
+void text_print_int(int nb, int row, int col) { 
+	unsigned char str[12];
+	itoa(nb, (unsigned char *)&str);
+    text_print((unsigned char*)&str, row, col, YELLOW_ON_BLACK);
 }
 
 void text_print_c(char c, int row, int col) {

@@ -7,6 +7,10 @@
 #include "gui_window.h"
 #include "font.h"
 
+extern void gui_puti(Window *win, uint nb);
+extern void gui_putnb(Window *win, int nb);
+extern void gui_putnb_right(Window *win, int nb);
+
 void draw_string(const unsigned char *str, int x, int y) {
 	int len = strlen(str);
 
@@ -64,102 +68,30 @@ void draw_char_inside_frame(unsigned char c, uint x, uint y, uint left_x, uint r
 }
 
 void draw_hex(char b, int x, int y) {
-	char str_[5];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[4] = 0;	
-	char* loc = str++; //offset since beginning has 0x
-	
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	int u = ((b & 0xf0) >> 4);
-	int l = (b & 0x0f);
-	*++str = key[u];
-	*++str = key[l];
-
-	//*++str = '\n'; //newline
-	draw_string(loc, x, y);
+	unsigned char str[5];
+	ctoa_hex_0x(b, (unsigned char *)&str);
+	draw_string((unsigned char *)&str, x, y);
 }
 
 // Prints a character in hex format, without the "0x"
 void draw_hex2(char b, int x, int y) {
-	char str_[3];
-	char *str = (char*)&str_;
-	str[2] = 0;	
-	char* loc = str;
-	
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	int u = ((b & 0xf0) >> 4);
-	int l = (b & 0x0f);
-	*str++ = key[u];
-	*str++ = key[l];
-
-	//*++str = '\n'; //newline
-	draw_string(loc, x, y);
+	unsigned char str[3];
+	ctoa_hex(b, (unsigned char *)&str);
+	draw_string((unsigned char *)&str, x, y);
 }
 
 // Prints the value of a pointer (in hex) at a particular
 // row and column on the screen
 void draw_ptr(void *ptr, int x, int y) {
-	unsigned char *addr = (unsigned char *)&ptr;
-	char str_[11];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[10] = 0;	char *loc = str++;
-
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	addr += 3;
-
-	for (int i=0; i<4; i++) {
-		unsigned char b = *addr--;
-		int u = ((b & 0xf0) >> 4);
-		int l = (b & 0x0f);
-		*++str = key[u];
-		*++str = key[l];
-	}
-
-	draw_string(loc, x, y);
+	unsigned char str[11];
+	itoa_hex_0x((uint)ptr, (unsigned char *)&str);
+	draw_string((unsigned char *)&str, x, y);
 }
 
 int draw_int(int nb, int x, int y) {
 	char tmp[12];
-	itoa(nb, (char*)&tmp);
+	itoa(nb, (unsigned char *)&tmp);
 	draw_string(tmp, x, y);
-/*
-	int nb_chars = 0;
-	if (nb < 0) {
-		draw_font('-', x, y);
-		x += 8;
-		nb_chars++;
-		nb = -nb;
-	}
-	uint nb_ref = 1000000000;
-	uint leading_zero = 1;
-	uint digit;
-
-	for (int i=0; i<=9; i++) {
-		if (nb >= nb_ref) {
-			digit = nb / nb_ref;
-			draw_font('0' + digit, x, y);
-			x += 8;
-			nb_chars++;
-			nb -= nb_ref * digit;
-
-			leading_zero = 0;
-		} else {
-			if (!leading_zero) {
-				draw_font('0', x, y);
-				x += 8;
-				nb_chars++;
-			}
-		}
-		nb_ref /= 10;
-	}	
-*/
 	return strlen(tmp);
 }
 
@@ -239,91 +171,6 @@ void gui_debug_putc(Window *win, char c) {
 	gui_debug_set_cursor(win);
 }
 
-void gui_debug_puti(Window *win, uint nb) {
-	unsigned char *addr = (unsigned char *)&nb;
-	char str_[11];
-	char *str = (char*)&str_;
-	str[0] = '0';
-	str[1] = 'x';
-	str[10] = 0;
-	char *loc = str++;
-
-	char key[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-
-	addr += 3;
-
-	for (int i=0; i<4; i++) {
-		unsigned char b = *addr--;
-		int u = ((b & 0xf0) >> 4);
-		int l = (b & 0x0f);
-		*++str = key[u];
-		*++str = key[l];
-	}
-
-	win->action->puts(win, loc);
-}
-
-void gui_debug_putnb(Window *win, int nb) {
-	char tmp[12];
-	itoa(nb, (char*)&tmp);
-	win->action->puts(win, tmp);
-	/*	
-	if (nb < 0) {
-		win->action->putc(win, '-');
-		nb = -nb;
-	}
-	uint nb_ref = 1000000000;
-	uint leading_zero = 1;
-	uint digit;
-
-	for (int i=0; i<=9; i++) {
-		if (nb >= nb_ref) {
-			digit = nb / nb_ref;
-			win->action->putc(win, '0' + digit);
-			nb -= nb_ref * digit;
-
-			leading_zero = 0;
-		} else {
-			if (!leading_zero) win->action->putc(win, '0');
-		}
-		nb_ref /= 10;
-	}*/
-}
-
-void gui_debug_putnb_right(Window *win, int nb) {
-	char number[12];
-	uint negative = 0;
-	number[11] = 0;
-	number[0] = ' ';
-
-	if (nb < 0) {
-		negative = 1;
-		nb = -nb;
-	}
-	uint nb_ref = 1000000000;
-	uint leading_zero = 1;
-	uint digit;
-
-	for (int i=0; i<=9; i++) {
-		if (nb >= nb_ref) {
-			digit = nb / nb_ref;
-			number[i+1] = '0' + digit;
-			nb -= nb_ref * digit;
-
-			if (!leading_zero && negative) number[i] = '-';
-			leading_zero = 0;
-		} else {
-			if (!leading_zero) number[i+1] = '0';
-			else number[i+1] = ' ';
-		}
-		nb_ref /= 10;
-	}
-
-	if (leading_zero) number[10] = '0';
-
-	gui_debug_puts(win, number);
-}
-
 void gui_debug_backspace(Window *win) {
 	win->cursor_x -= 8;
 //	win->text_end--;
@@ -341,9 +188,9 @@ struct WindowAction gui_debug_window_action = {
 	.cls = &gui_debug_cls,
 	.puts = &gui_debug_puts,
 	.putc = &gui_debug_putc,
-	.puti = &gui_debug_puti,
-	.putnb = &gui_debug_putnb,
-	.putnb_right = &gui_debug_putnb_right,
+	.puti = &gui_puti,
+	.putnb = &gui_putnb,
+	.putnb_right = &gui_putnb_right,
 	.backspace = &gui_debug_backspace,
 	.putcr = &gui_debug_putcr,
 	.set_cursor = &gui_debug_set_cursor,
