@@ -16,6 +16,7 @@ typedef struct {
 
 void init_network();
 uint8 *network_get_MAC();
+uint8 *network_get_router_MAC();
 uint network_get_IPv4();
 uint network_get_dns();
 void network_set_IPv4(uint IP);

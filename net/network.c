@@ -37,6 +37,10 @@ uint8 *network_get_MAC() {
 	return (uint8*)&network.MAC;
 }
 
+uint8 *network_get_router_MAC() {
+	return (uint8*)&network.router_MAC;
+}
+
 Network *network_get_info() {
 	return &network;
 }

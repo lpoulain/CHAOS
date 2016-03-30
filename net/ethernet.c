@@ -46,9 +46,22 @@ void ethernet_send_packet(uint8* buffer, uint16 size) {
 
 void ethernet_receive_packet(uint8* buffer) {
 	EthernetHeader *header = (EthernetHeader*)buffer;
+	uint8 *MAC_router;
+	IPv4Header *header_ip;
 
 	switch(header->type) {
 		case ETHERNET_IPV4:
+			MAC_router = network_get_router_MAC();
+			if (header->src[0] != MAC_router[0] ||
+				header->src[1] != MAC_router[1] ||
+				header->src[2] != MAC_router[2] ||
+				header->src[3] != MAC_router[3] ||
+				header->src[4] != MAC_router[4] ||
+				header->src[5] != MAC_router[5]) {
+
+				header_ip = (IPv4Header*)(buffer + ETHERNET_HEADER_SIZE);
+				ARP_add_MAC(header_ip->ip_src, &header->src);
+			}
 			IPv4_receive_packet(buffer + ETHERNET_HEADER_SIZE);
 			break;
 		case ETHERNET_ARP:

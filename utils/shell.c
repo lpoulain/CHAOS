@@ -266,8 +266,20 @@ void process_command(Window *win, ShellEnv *env) {
 	}
 
 	if (!strncmp(win->buffer, "ping", 4)) {
-		ICMP_send_packet(0x6400A8C0);
-//		ICMP_send_packet(0x0300F4D1);
+//		ICMP_send_packet(0x6400A8C0);
+		uint ps_id = current_process->pid;
+		ICMP_register_reply(ps_id, 0xFE00 & ps_id);
+		ICMP_send_packet(0x0300F4D1);
+
+		for (int i=0; i<2000000000; i++) {
+			if (ICMP_has_response(ps_id)) {
+				printf_win(win, "PONG!\n");
+				return;
+			}
+		}
+
+		ICMP_unregister_reply(current_process);
+		printf_win(win, "No response\n");
 		return;
 	}
 

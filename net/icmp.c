@@ -40,7 +40,21 @@ uint16 ICMP_checksum(uint8* buffer, uint16 size) {
 	return ~switch_endian16((uint16)sum);
 }
 
-void ICMP_send_packet(uint ipv4) {
+uint16 registration[2];
+
+void ICMP_register_reply(uint ps_id, uint16 id) {
+	registration[ps_id] = id;
+}
+
+void ICMP_unregister_reply(uint ps_id) {
+	registration[ps_id] = 0;
+}
+
+uint8 ICMP_has_response(uint ps_id) {
+	return (!registration[ps_id]);
+}
+
+void ICMP_send_packet(uint ipv4, uint16 id) {
 //	printf_win(win, "MAC address: %X:%X:%X:%X:%X:%X\n", E1000_adapter.MAC[0], E1000_adapter.MAC[1], E1000_adapter.MAC[2], E1000_adapter.MAC[3], E1000_adapter.MAC[4], E1000_adapter.MAC[5]);
 	uint16 offset;
 
@@ -52,10 +66,19 @@ void ICMP_send_packet(uint ipv4) {
 	header->type = ICMP_TYPE_ECHO_REQUEST;
 	header->code = 0;
 	header->checksum = 0;
-	header->id = 0x0E4F;
+	header->id = id;
 	header->seq = 0;
+	header->timestamp[0] = 0x56;
+	header->timestamp[1] = 0xFB;
+	header->timestamp[2] = 0x3F;
+	header->timestamp[3] = 0x21;
+	header->timestamp[4] = 0x00;
+	header->timestamp[5] = 0x07;
+	header->timestamp[6] = 0x1C;
+	header->timestamp[7] = 0xD6;
 
 	strncpy((char*)&header->data, ping_data, 48);
+	header->checksum = ICMP_checksum((uint8*)header, 64);
 
 	IPv4_send_packet(buffer, 64 + offset, offset);
 }
@@ -63,6 +86,17 @@ void ICMP_send_packet(uint ipv4) {
 void ICMP_receive_packet(uint ipv4, uint8* buffer_ping, uint16 size) {
 //	size = 64;
 	ICMPHeader *header_ping = (ICMPHeader*)buffer_ping;
+
+	if (header_ping->type == ICMP_TYPE_ECHO_REPLY) {
+		printf("Pong from %x, size=%d\n", ipv4, size);
+		for (int i=0; i<2; i++) {
+			if (registration[i] == header_ping->id) {
+				registration[i] = 0;
+				return;
+			}
+		}
+		return;
+	}
 
 	uint16 offset, ping_msg_size = size - ICMP_HEADER_SIZE;
 
@@ -86,6 +120,5 @@ void ICMP_receive_packet(uint ipv4, uint8* buffer_ping, uint16 size) {
 //	dump_mem(buffer_pong, size, 14);
 //	for (;;);
 
-	printf("Pong from %x, size=%d\n", ipv4, size);
 	IPv4_send_packet(buffer_pong, size + offset, offset);
 }
