@@ -15,6 +15,7 @@
 #include "pci.h"
 #include "dhcp.h"
 #include "network.h"
+#include "icmp.h"
 
 #define DISK_ERR_DOES_NOT_EXIST	-2
 
@@ -249,6 +250,24 @@ void process_command(Window *win, ShellEnv *env) {
 					   devices->bus, devices->slot, devices->IRQ, devices->vendor_name, devices->device_name);
 			devices = devices->next;
 		}
+		return;
+	}
+
+	if (!strcmp(win->buffer, "net")) {
+		DHCP_send_packet();
+		return;
+	}
+
+	if (!strncmp(win->buffer, "dns ", 4)) {
+		uint ip = DNS_query(win->buffer + 4);
+		uint8 *ipv4 = (uint8*)&ip;
+		printf_win(win, "=> %d,%d,%d,%d\n", ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
+		return;
+	}
+
+	if (!strncmp(win->buffer, "ping", 4)) {
+		ICMP_send_packet(0x6400A8C0);
+//		ICMP_send_packet(0x0300F4D1);
 		return;
 	}
 

@@ -26,37 +26,6 @@ typedef struct {
 ARPEntry ARP_table[100];
 uint16 nb_ARP_entries = 0;
 
-uint8 *ARP_get_MAC(uint ipv4) {
-	for (int i=0; i<nb_ARP_entries; i++) {
-		if (ARP_table[i].ipv4 == ipv4) return (uint8*)&ARP_table[i].MAC;
-	}
-	printf("No MAC for %x\n", ipv4);
-	return 0;
-}
-
-void ARP_add_MAC(uint ipv4, uint8 *MAC) {
-	int i;
-
-	for (i=0; i<nb_ARP_entries; i++) {
-		if (ARP_table[i].ipv4 == ipv4) {
-			for (int j=0; j<6; j++)
-				ARP_table[i].MAC[j] = MAC[j];
-			return;
-		}
-	}
-
-	ARP_table[nb_ARP_entries].ipv4 = ipv4;
-	for (int j=0; j<6; j++)
-		ARP_table[nb_ARP_entries].MAC[j] = MAC[j];
-
-	nb_ARP_entries++;
-
-	uint8 *ip = (uint8*)&ipv4;
-/*	printf("%d,%d,%d,%d => %X:%X:%X:%X:%X:%X\n",
-		   ip[0], ip[1], ip[2], ip[3],
-		   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);*/
-}
-
 uint8 *ARP_send_packet(uint ipv4) {
 	// Get an Ethernet packet
 	uint16 offset;
@@ -79,6 +48,53 @@ uint8 *ARP_send_packet(uint ipv4) {
 	ethernet_send_packet(buffer, offset + 18 + ARP_HEADER_SIZE);
 }
 
+uint8 *ARP_get_MAC(uint ipv4) {
+	for (int i=0; i<nb_ARP_entries; i++) {
+		if (ARP_table[i].ipv4 == ipv4) return (uint8*)&ARP_table[i].MAC;
+	}
+
+	if (nb_ARP_entries == 1) printf("No MAC for %x\n", ipv4);
+
+	// If the IP address is from the local network, then perform an ARP request to get its MAC address
+	if ((ipv4 & 0x00FFFFFF) == (network_get_IPv4() & 0x00FFFFFF)) {
+		ARP_send_packet(ipv4);
+
+		for (int j=0; j<2000000000; j++) {
+			for (int i=0; i<nb_ARP_entries; i++) {
+				if (ARP_table[i].ipv4 == ipv4) return (uint8*)&ARP_table[i].MAC;
+			}
+		}
+	}
+
+//	printf("No MAC for %x (%x != %x)\n", ipv4, ipv4 & 0x00FFFFFF, network_get_IPv4() & 0x00FFFFFF);
+
+	// Otherwise, send the request to the router
+	return (uint8*)&ARP_table[1].MAC;
+}
+
+void ARP_add_MAC(uint ipv4, uint8 *MAC) {
+	int i;
+
+	for (i=0; i<nb_ARP_entries; i++) {
+		if (ARP_table[i].ipv4 == ipv4) {
+			for (int j=0; j<6; j++)
+				ARP_table[i].MAC[j] = MAC[j];
+			return;
+		}
+	}
+
+	ARP_table[nb_ARP_entries].ipv4 = ipv4;
+	for (int j=0; j<6; j++)
+		ARP_table[nb_ARP_entries].MAC[j] = MAC[j];
+
+	nb_ARP_entries++;
+
+	uint8 *ip = (uint8*)&ipv4;
+	printf("%d,%d,%d,%d => %X:%X:%X:%X:%X:%X\n",
+		   ip[0], ip[1], ip[2], ip[3],
+		   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
+}
+
 void ARP_receive_packet(uint8 *buffer) {
 	ARPPacket *header = (ARPPacket*)buffer;
 	if (header->opcode == ARP_REPLY) {
@@ -91,5 +107,6 @@ void init_ARP() {
 	ARP_table[0].ipv4 = 0xFFFFFFFF;
 	for (int i=0; i<6; i++)
 		ARP_table[0].MAC[i] = 0xFF;
+
 	nb_ARP_entries = 1;
 }

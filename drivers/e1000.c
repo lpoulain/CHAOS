@@ -168,13 +168,13 @@ void E1000_enable_interrupt()
 }
 
 uint flag = 0;
+uint flag_FF = 0, flag_me = 0, flag_router = 0;
 
 void E1000_handle_receive(registers_t regs) {
 	uint status = E1000_read_command(0xc0);
 
     uint16 old_cur;
     uint8 got_packet = 0;
- 
 
     while((E1000_adapter.rx_descs[E1000_adapter.rx_cur].status & 0x1))
     {
@@ -185,7 +185,20 @@ void E1000_handle_receive(registers_t regs) {
             // Here you should inject the received packet into your network stack
 //		    if (!flag) dump_mem(buf, 14, 280);
 //	            if (flag < 10) printf("Received %x\n", buf);*/
-		    	flag++;
+
+            if (buf[0] == E1000_adapter.MAC[0] &&
+            	buf[1] == E1000_adapter.MAC[1] &&
+            	buf[2] == E1000_adapter.MAC[2] &&
+            	buf[3] == E1000_adapter.MAC[3] &&
+            	buf[4] == E1000_adapter.MAC[4] &&
+            	buf[5] == E1000_adapter.MAC[5]) flag_me++;
+
+            if (buf[0] == 0xFF &&
+            	buf[1] == 0xFF &&
+            	buf[2] == 0xFF &&
+            	buf[3] == 0xFF &&
+            	buf[4] == 0xFF &&
+            	buf[5] == 0xFF) flag_FF++;
 
             if ((buf[0] == E1000_adapter.MAC[0] &&
             	buf[1] == E1000_adapter.MAC[1] &&
@@ -205,6 +218,15 @@ void E1000_handle_receive(registers_t regs) {
 	        	ethernet_receive_packet(buf);
 	    	}
 
+/*	    	draw_ptr(flag_me, 0, 0);
+	    	draw_ptr(flag_FF, 400, 0);
+	    	draw_hex2(buf[0], 30*8, 0);
+	    	draw_hex2(buf[1], 33*8, 0);
+	    	draw_hex2(buf[2], 36*8, 0);
+	    	draw_hex2(buf[3], 39*8, 0);
+	    	draw_hex2(buf[4], 42*8, 0);
+	    	draw_hex2(buf[5], 45*8, 0);
+*/
        	    E1000_adapter.rx_descs[E1000_adapter.rx_cur].status = 0;
 			old_cur = E1000_adapter.rx_cur;
 			E1000_adapter.rx_cur = (E1000_adapter.rx_cur + 1) % NUM_RX_DESC;

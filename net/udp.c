@@ -42,7 +42,7 @@ uint16 UDP_checksum(UDPHeader *header) {
 uint8 *UDP_create_packet(uint ipv4, uint16 sport, uint16 dport, uint16 size, uint16 *offset) {
 	// Get an IPv4 packet
 	size += UDP_HEADER_SIZE;
-	uint8 *buffer = IPv4_create_packet(ipv4, size, offset);
+	uint8 *buffer = IPv4_create_packet(IPV4_PROTOCOL_UDP, ipv4, size, offset);
 
 	// Append the UDP header
 	UDPHeader *header = (UDPHeader*)(buffer + *offset);

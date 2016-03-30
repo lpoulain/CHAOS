@@ -13,7 +13,7 @@ void init_network() {
 	memset(&network, 0, sizeof(Network));
 	init_E1000();
 	init_ARP();
-	
+
 	uint8 *MAC = E1000_get_MAC();
 	for (int i=0; i<6; i++) network.MAC[i] = MAC[i];
 
@@ -27,6 +27,10 @@ void network_set_IPv4(uint IP) {
 
 uint network_get_IPv4() {
 	return network.IPv4;
+}
+
+uint network_get_DNS() {
+	return network.dns;
 }
 
 uint8 *network_get_MAC() {

@@ -35,10 +35,12 @@ uint8 *ethernet_create_packet(uint16 protocol, uint ipv4, uint16 size, uint16 *o
 
 void ethernet_send_packet(uint8* buffer, uint16 size) {
 	E1000_send_packet(buffer, size);
-/*	if (size < 300) {
-	dump_mem(buffer, 342, 14);
-	for (;;);
-	}*/
+
+	if (size == 98) {
+//	dump_mem(buffer, 342, 14);
+//	for (;;);
+	}
+	
 	kfree(buffer);
 }
 

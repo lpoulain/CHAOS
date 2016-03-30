@@ -3,9 +3,7 @@
 #include "ethernet.h"
 #include "ipv4.h"
 #include "udp.h"
-
-#define IPV4_UDP	0x11
-#define IPV4_TCP 	0x06
+#include "icmp.h"
 
 uint16 IPv4_checksum(IPv4Header *header) {
 	uint sum = 0;
@@ -21,7 +19,7 @@ uint16 IPv4_checksum(IPv4Header *header) {
 	return ~switch_endian16((uint16)sum);
 }
 
-uint8 *IPv4_create_packet(uint ipv4, uint16 size, uint16 *offset) {
+uint8 *IPv4_create_packet(uint8 protocol, uint ipv4, uint16 size, uint16 *offset) {
 	// Get an Ethernet packet
 	size += IPV4_HEADER_SIZE;
 	uint8 *buffer = ethernet_create_packet(ETHERNET_IPV4, ipv4, size, offset);
@@ -29,14 +27,14 @@ uint8 *IPv4_create_packet(uint ipv4, uint16 size, uint16 *offset) {
 	// Append the IPv4 header
 	IPv4Header *header = (IPv4Header*)(buffer + *offset);
 	header->header = 0x45;
-	header->diff_svc_fld = 0x10;
+	header->diff_svc_fld = 0x00;
 	header->length = switch_endian16(size);
-	header->id = 0;
+	header->id = 0xCC24;
 	header->flags = 0x00;
 	header->fragment_offset = 0x0000;
 	header->time_to_live = 0x80;
-	header->protocol = IPV4_UDP;
-	header->ip_src = 0;
+	header->protocol = protocol;
+	header->ip_src = network_get_IPv4();
 	header->ip_dst = ipv4;
 	header->checksum = IPv4_checksum(header);
 
@@ -52,10 +50,12 @@ void IPv4_receive_packet(uint8 *buffer) {
 	IPv4Header *header = (IPv4Header*)buffer;
 	
 	switch(header->protocol) {
-		case IPV4_UDP:
+		case IPV4_PROTOCOL_UDP:
 			UDP_receive_packet(buffer + IPV4_HEADER_SIZE);
 			break;
-		case IPV4_TCP:
+		case IPV4_PROTOCOL_TCP:
 			break;
+		case IPV4_PROTOCOL_ICMP:
+			ICMP_receive_packet(header->ip_src, buffer + IPV4_HEADER_SIZE, switch_endian16(header->length) - IPV4_HEADER_SIZE);
 	}
 }
