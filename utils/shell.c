@@ -16,6 +16,7 @@
 #include "dhcp.h"
 #include "network.h"
 #include "icmp.h"
+#include "arp.h"
 
 #define DISK_ERR_DOES_NOT_EXIST	-2
 
@@ -30,36 +31,6 @@ extern void context_switch();
 extern void syscall();
 extern void memory_print(Window *);
 extern void font_viewer();
-
-// This structure holds the information specific to a
-// shell session (command history, current directory)
-typedef struct {
-	char cmd_history[100][BUFFER_SIZE];
-	uint cmd_history_idx;
-	uint dir_cluster;
-	DirEntry *dir_index;
-	char path[256];
-} ShellEnv;
-
-void prompt(Window *win, ShellEnv *env) {
-	win->action->puts(win, "CHAOS");
-	win->action->puts(win, env->path);
-	win->action->puts(win, "> ");
-}
-
-void countdown(Window *win) {
-	int counter = 10;
-	char *nb = "9876543210";
-	for (int k=0; k<10; k++) {
-		for (int i=0; i<10000; i++) {
-			for (int j=0; j<10000; j++) {
-			}
-		}
-		win->action->putc(win, nb[k]);
-	}
-	win->action->putcr(win);
-}
-
 extern unsigned char *kernel_debug_line;
 extern unsigned char *kernel_debug_info;
 extern unsigned char *kernel_debug_str;
@@ -73,312 +44,34 @@ typedef void (*function)(int, char **);
 extern void syscall_handler2();
 extern void draw_background(int left_x, int right_x, int top_y, int bottom_y);
 
+// This structure holds the information specific to a
+// shell session (command history, current directory)
+typedef struct {
+	char cmd_history[100][BUFFER_SIZE];
+	uint cmd_history_idx;
+	uint dir_cluster;
+	DirEntry *dir_index;
+	char path[256];
+} ShellEnv;
+
+typedef void (*shell_cmd)(Window *, ShellEnv *, Token *, uint length);
+
+typedef struct {
+	char *name;
+	shell_cmd function;
+	char *description;
+} ShellCmd;
+
 uint dump_mem_addr = 0;
 
-void process_command(Window *win, ShellEnv *env) {
+////////////////////////////////////////////////////////////////////////
+// All the Shell commands
+////////////////////////////////////////////////////////////////////////
 
-	// Clear screen
-	if (!strcmp(win->buffer, "cls")) {
-		win->action->cls(win);
-		return;
-	}
+void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length);
 
-	if (!strcmp(win->buffer, "debug")) {
-		if (switch_debug()) win->action->puts(win, "Debug is ON");
-		else win->action->puts(win, "Debug is off");
-
-		win->action->putcr(win);
-		return;
-	}
-
-	if (!strcmp(win->buffer, "ls")) {
-		disk_load_file_index();
-		disk_ls(env->dir_cluster, env->dir_index);
-
-		char long_filename[256];
-
-		char filename[13];
-		char *str;
-		uint16 skip;
-		const char *src;
-		uint16 fat_entry;
-
-		for (int idx=0; env->dir_index[idx].filename[0] != 0; idx++) {
-			// In some cases we need to skip some entries
-			// (deleted, empty, used for long filenames)
-			skip = disk_skip_n_entries(&env->dir_index[idx]);
-			if (skip > 0) {
-				idx += (skip - 1);
-				continue;
-			}
-
-			if (disk_is_directory(&env->dir_index[idx])) win->action->puts(win, "      <DIR>  ");
-			else {
-				win->action->putnb_right(win, env->dir_index[idx].size);
-				win->action->puts(win, "  ");
-			}
-
-			// If the previous entry(ies) are LFN, display the long filename
-			if (disk_has_long_filename(&env->dir_index[idx])) {
-				win->action->puts(win, disk_get_long_filename(&env->dir_index[idx]));
-			} else {
-				win->action->puts(win, env->dir_index[idx].filename);
-			}
-			win->action->putcr(win);
-
-//			disk_load_file(&dir[i], win);
-		}
-		return;
-	}
-
-	if (!strncmp(win->buffer, "cd ", 3)) {
-		disk_ls(env->dir_cluster, env->dir_index);
-		int result = disk_cd(win->buffer+3, env->dir_index, env->path);
-
-		if (result == DISK_ERR_DOES_NOT_EXIST) {
-			win->action->puts(win, "The directory does not exist");
-			win->action->putcr(win);
-			return;
-		}
-		
-		if (result == DISK_ERR_NOT_A_DIR) {
-			win->action->puts(win, "This is not a directory");
-			win->action->putcr(win);
-			return;
-		}
-
-		env->dir_cluster = result;
-		win->action->putcr(win);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "cat ", 4)) {
-		File f;
-
-//		disk_ls(env->dir_cluster, env->dir_index);
-		int result = disk_load_file(win->buffer+4, env->dir_cluster, env->dir_index, &f);
-
-		if (result == DISK_ERR_DOES_NOT_EXIST) {
-			win->action->puts(win, "The file does not exist");
-			win->action->putcr(win);
-			return;
-		}
-
-		if (result == DISK_ERR_NOT_A_FILE) {
-			win->action->puts(win, "This is not a file");
-			win->action->putcr(win);
-			return;
-		}
-
-		if (result != DISK_CMD_OK) {
-			win->action->puts(win, "Error");
-			win->action->putcr(win);
-			return;
-		}
-
-		win->action->puts(win, "File: ");
-		win->action->puts(win, f.filename);
-		win->action->putcr(win);
-
-		char *start;
-		for (int i=0; i<f.info.size; i++) {
-			if (f.body[i] == 0x0A) {
-				win->action->putcr(win);
-			} else if (f.body[i] == 0x09) {
-				win->action->puts(win, "    ");
-			} else {
-				win->action->putc(win, f.body[i]);
-			}
-		}
-		win->action->putcr(win);
-
-		kfree(f.body);
-
-		return;
-	}
-
-	if (!strncmp(win->buffer, "load ", 5)) {
-		File f;
-
-		disk_ls(env->dir_cluster, env->dir_index);
-		int result = disk_load_file(win->buffer+5, env->dir_cluster, env->dir_index, &f);
-
-		if (result == DISK_ERR_DOES_NOT_EXIST) {
-			win->action->puts(win, "The file does not exist");
-			win->action->putcr(win);
-			return;
-		}
-
-		if (result == DISK_ERR_NOT_A_FILE) {
-			win->action->puts(win, "This is not a file");
-			win->action->putcr(win);
-			return;
-		}
-
-		if (result != DISK_CMD_OK) {
-			win->action->puts(win, "Error");
-			win->action->putcr(win);
-			return;
-		}		
-
-		win->action->puts(win, "File loaded at: ");
-		win->action->puti(win, (uint)f.body);
-		win->action->putcr(win);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "edit ", 5)) {
-		disk_ls(env->dir_cluster, env->dir_index);
-		edit(env->dir_index, env->dir_cluster, win->buffer + 5);
-
-		win->action->init(win, " Shell ");
-		win->action->cls(win);
-
-		return;
-	}
-
-	if (!strcmp(win->buffer, "fonts")) {
-		font_viewer();
-		return;
-	}
-
-	if (!strcmp(win->buffer, "pci")) {
-		PCIDevice *devices = PCI_get_devices();
-		while (devices) {
-			printf_win(win,
-					   "Bus %d Slot %d IRQ %d [%s]: %s\n",
-					   devices->bus, devices->slot, devices->IRQ, devices->vendor_name, devices->device_name);
-			devices = devices->next;
-		}
-		return;
-	}
-
-	if (!strcmp(win->buffer, "net")) {
-		DHCP_send_packet();
-		return;
-	}
-
-	if (!strncmp(win->buffer, "dns ", 4)) {
-		uint ip = DNS_query(win->buffer + 4);
-		uint8 *ipv4 = (uint8*)&ip;
-		printf_win(win, "=> %d,%d,%d,%d\n", ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "ping", 4)) {
-//		ICMP_send_packet(0x6400A8C0);
-		uint ps_id = current_process->pid;
-		ICMP_register_reply(ps_id, 0xFE00 & ps_id);
-		ICMP_send_packet(0x0300F4D1);
-
-		for (int i=0; i<2000000000; i++) {
-			if (ICMP_has_response(ps_id)) {
-				printf_win(win, "PONG!\n");
-				return;
-			}
-		}
-
-		ICMP_unregister_reply(current_process);
-		printf_win(win, "No response\n");
-		return;
-	}
-
-	if (!strcmp(win->buffer, "ifconfig")) {
-		Network *network = network_get_info();
-
-		printf_win(win, "MAC Address:     %X:%X:%X:%X:%X:%X\n", network->MAC[0], network->MAC[1], network->MAC[2], network->MAC[3], network->MAC[4], network->MAC[5]);
-		uint8 *ip = (uint8*)&network->IPv4;
-		printf_win(win, "Your IP address: %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-		ip = (uint8*)&network->router_IPv4;
-		printf_win(win, "Gateway:         %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-		ip = (uint8*)&network->dns;
-		printf_win(win, "DNS Server:      %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-		ip = (uint8*)&network->subnet_mask;
-		printf_win(win, "Subnet mask:     %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "cc ", 3)) {
-		compile_formula(win, win->buffer+3, env->dir_cluster, env->dir_index);
-		return;
-	}	
-
-	if (!strcmp(win->buffer, "help")) {
-		win->action->puts(win, "Commands:"); win->action->putcr(win);
-		win->action->puts(win, "- help: this help"); win->action->putcr(win);
-		win->action->puts(win, "- cls: clear screen"); win->action->putcr(win);
-		win->action->puts(win, "- stack: prints the stack trace"); win->action->putcr(win);
-		win->action->puts(win, "- countdown: pegs the CPU for a few seconds (to test multitasking)"); win->action->putcr(win);
-		win->action->puts(win, "- mem: main memory pointers"); win->action->putcr(win);
-		win->action->puts(win, "- mem [hex address]: memory dump (to test paging)"); win->action->putcr(win);
-		win->action->puts(win, "- heap: shows what is being allocated in the heap"); win->action->putcr(win);
-		win->action->puts(win, "- cd, ls, cat: basic filesystem functions"); win->action->putcr(win);
-		win->action->puts(win, "- run [exec]: executes a file"); win->action->putcr(win);
-		win->action->puts(win, "- fonts: tests the system's proportional fonts"); win->action->putcr(win);
-		win->action->puts(win, "- [integer formula]: e.g. 5 + 4*(3 - 1)");
-		win->action->putcr(win);
-		return;
-	}
-
-	// Run a countdown
-	if (!strcmp(win->buffer, "countdown")) {
-		countdown(win);
-		return;
-	}
-
-	// Display the current stack trace
-	if (!strcmp(win->buffer, "stack")) {
-		Window *win_dbg = set_window_debug(win);
-		stack_dump();
-		set_window_debug(win_dbg);
-		return;
-	}
-
-	if (!strcmp(win->buffer, "redraw")) {
-		gui_redraw(win, win->left_x, win->right_x, win->top_y, win->bottom_y);
-		return;
-	}
-
-	if (!strcmp(win->buffer, "reboot")) {
-		reboot();
-		return;
-	}
-
-	// Prints the main memory pointers
-	if (!strcmp(win->buffer, "mem")) {
-	    printf_win(win, "code:       %x\n", (uint)&code);
-	    printf_win(win, "r/o data:   %x\n", (uint)&rodata);
-	    printf_win(win, "data:       %x\n", (uint)&data);
-    	printf_win(win, "bss:        %x\n", (uint)&bss);
-    	printf_win(win, "debug_info: %x\n", (uint)&debug_info);
-    	printf_win(win, "end:        %x\n", (uint)&end);
-    	printf_win(win, "heap:       %x->%x %x->%x\n", kheap.start, kheap.end, kheap.page_start, kheap.page_end);
-    	memory_print(win);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "alloc ", 6)) {
-		uint nb = atoi(win->buffer + 6);
-		void *res = kmalloc_pages(nb, "Testing");
-		printf_win(win, "=> %x\n", res);
-		kheap_print(win);
-		return;
-	}
-
-	if (!strncmp(win->buffer, "free ", 5)) {
-		uint nb = atoi_hex(win->buffer + 5);
-		kfree((void*)nb);
-		kheap_print(win);
-		return;
-	}
-
-	if (!strcmp(win->buffer, "heap")) {
-		kheap_print(win);
-		return;
-	}
-
-	// Memory dump
-	if (!strncmp(win->buffer, "mem ", 4)) {
+void shell_mem(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length > 0 && tokens->code == PARSE_HEX) {
 		uint bufferpos = 4;
 		if (!strncmp(win->buffer + 4, "0x", 2)) bufferpos += 2;
 
@@ -407,26 +100,429 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
-	if (!strncmp(win->buffer, "run ", 4)) {
-		int idx = 4;
-		int argc = 0;
-		char* argv[10];
-		char *filename = win->buffer + 4;
 
-		while (win->buffer[idx] != ' ' && idx++ < 256);
-		win->buffer[idx++] = 0;
+    printf_win(win, "code:       %x\n", (uint)&code);
+    printf_win(win, "r/o data:   %x\n", (uint)&rodata);
+    printf_win(win, "data:       %x\n", (uint)&data);
+   	printf_win(win, "bss:        %x\n", (uint)&bss);
+   	printf_win(win, "debug_info: %x\n", (uint)&debug_info);
+   	printf_win(win, "end:        %x\n", (uint)&end);
+   	printf_win(win, "heap:       %x->%x %x->%x\n", kheap.start, kheap.end, kheap.page_start, kheap.page_end);
+   	memory_print(win);
+}
 
-		argc = 1;
-		argv[0] = win->buffer + idx;
+void shell_heap(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	kheap_print(win);
+}
 
-//		printf("[%s]\n", argv[0]);
-
-		elf_exec(filename, argc, (char **)&argv);
+void shell_cd(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid directory name\n");
 		return;
 	}
 
-	// Parsing arithmetic operations
+	disk_ls(env->dir_cluster, env->dir_index);
+	int result = disk_cd(tokens->value, env->dir_index, env->path);
+
+	if (result == DISK_ERR_DOES_NOT_EXIST) {
+		win->action->puts(win, "The directory does not exist");
+		win->action->putcr(win);
+		return;
+	}
+	
+	if (result == DISK_ERR_NOT_A_DIR) {
+		win->action->puts(win, "This is not a directory");
+		win->action->putcr(win);
+		return;
+	}
+
+	env->dir_cluster = result;
+	win->action->putcr(win);
+}
+
+void shell_load(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid filename\n");
+		return;
+	}
+
+	File f;
+
+	disk_ls(env->dir_cluster, env->dir_index);
+	int result = disk_load_file(tokens->value, env->dir_cluster, env->dir_index, &f);
+
+	if (result == DISK_ERR_DOES_NOT_EXIST) {
+		win->action->puts(win, "The file does not exist");
+		win->action->putcr(win);
+		return;
+	}
+
+	if (result == DISK_ERR_NOT_A_FILE) {
+		win->action->puts(win, "This is not a file");
+		win->action->putcr(win);
+		return;
+	}
+
+	if (result != DISK_CMD_OK) {
+		win->action->puts(win, "Error");
+		win->action->putcr(win);
+		return;
+	}		
+
+	win->action->puts(win, "File loaded at: ");
+	win->action->puti(win, (uint)f.body);
+	win->action->putcr(win);
+}
+
+void shell_cat(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid filename\n");
+		return;
+	}
+
+	File f;
+
+//		disk_ls(env->dir_cluster, env->dir_index);
+	int result = disk_load_file(tokens->value, env->dir_cluster, env->dir_index, &f);
+
+	if (result == DISK_ERR_DOES_NOT_EXIST) {
+		win->action->puts(win, "The file does not exist");
+		win->action->putcr(win);
+		return;
+	}
+
+	if (result == DISK_ERR_NOT_A_FILE) {
+		win->action->puts(win, "This is not a file");
+		win->action->putcr(win);
+		return;
+	}
+
+	if (result != DISK_CMD_OK) {
+		win->action->puts(win, "Error");
+		win->action->putcr(win);
+		return;
+	}
+
+	win->action->puts(win, "File: ");
+	win->action->puts(win, f.filename);
+	win->action->putcr(win);
+
+	char *start;
+	for (int i=0; i<f.info.size; i++) {
+		if (f.body[i] == 0x0A) {
+			win->action->putcr(win);
+		} else if (f.body[i] == 0x09) {
+			win->action->puts(win, "    ");
+		} else {
+			win->action->putc(win, f.body[i]);
+		}
+	}
+	win->action->putcr(win);
+
+	kfree(f.body);
+}
+
+void shell_cc(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid filename\n");
+		return;
+	}
+
+	compile_formula(win, tokens->value, env->dir_cluster, env->dir_index);
+}
+
+void shell_run(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid filename\n");
+		return;
+	}
+
+	if (length == 1 || tokens->next->code != PARSE_NUMBER) {
+		printf_win(win, "You must pass a number as an argument\n");
+		return;
+	}
+
+	int idx = 4;
+	int argc = 0;
+	char* argv[10];
+	char *filename = win->buffer + 4;
+
+	while (win->buffer[idx] != ' ' && idx++ < 256);
+	win->buffer[idx++] = 0;
+
+	argc = 1;
+	argv[0] = win->buffer + idx;
+
+	elf_exec(filename, argc, (char **)&argv);
+}
+
+void shell_edit(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid filename\n");
+		return;
+	}
+
+	disk_ls(env->dir_cluster, env->dir_index);
+	edit(env->dir_index, env->dir_cluster, tokens->value);
+
+	win->action->init(win, " Shell ");
+	win->action->cls(win);
+}
+
+void shell_ls(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	disk_load_file_index();
+	disk_ls(env->dir_cluster, env->dir_index);
+
+	char long_filename[256];
+
+	char filename[13];
+	char *str;
+	uint16 skip;
+	const char *src;
+	uint16 fat_entry;
+
+	for (int idx=0; env->dir_index[idx].filename[0] != 0; idx++) {
+		// In some cases we need to skip some entries
+		// (deleted, empty, used for long filenames)
+		skip = disk_skip_n_entries(&env->dir_index[idx]);
+		if (skip > 0) {
+			idx += (skip - 1);
+			continue;
+		}
+
+		if (disk_is_directory(&env->dir_index[idx])) win->action->puts(win, "      <DIR>  ");
+		else {
+			win->action->putnb_right(win, env->dir_index[idx].size);
+			win->action->puts(win, "  ");
+		}
+
+		// If the previous entry(ies) are LFN, display the long filename
+		if (disk_has_long_filename(&env->dir_index[idx])) {
+			win->action->puts(win, disk_get_long_filename(&env->dir_index[idx]));
+		} else {
+			win->action->puts(win, env->dir_index[idx].filename);
+		}
+		win->action->putcr(win);
+
+//			disk_load_file(&dir[i], win);
+	}
+}
+
+void shell_pci(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	PCIDevice *devices = PCI_get_devices();
+	while (devices) {
+		printf_win(win,
+				   "Bus %d Slot %d IRQ %d [%s]: %s\n",
+				   devices->bus, devices->slot, devices->IRQ, devices->vendor_name, devices->device_name);
+		devices = devices->next;
+	}
+}
+
+void shell_debug(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (switch_debug()) win->action->puts(win, "Debug is ON");
+	else win->action->puts(win, "Debug is off");
+
+	win->action->putcr(win);
+}
+
+void shell_redraw(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	gui_redraw(win, win->left_x, win->right_x, win->top_y, win->bottom_y);
+}
+
+void shell_cls(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	win->action->cls(win);
+}
+
+void shell_bg(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length < 4) {
+		printf_win(win, "Need 4 numbers as arguments\n");
+		return;
+	}
+
+	if (tokens->code == PARSE_NUMBER &&
+		tokens->next->code == PARSE_NUMBER &&
+		tokens->next->next->code == PARSE_NUMBER &&
+		tokens->next->next->next->code == PARSE_NUMBER) {
+
+		draw_background((int)tokens->value,
+						(int)tokens->next->value,
+						(int)tokens->next->next->value,
+						(int)tokens->next->next->next->value);
+
+		parser_memory_cleanup(tokens);
+		return;
+	}
+}
+
+void shell_fonts(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	font_viewer();
+}
+
+void shell_ifconfig(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	Network *network = network_get_info();
+
+	printf_win(win, "MAC Address:     %X:%X:%X:%X:%X:%X\n", network->MAC[0], network->MAC[1], network->MAC[2], network->MAC[3], network->MAC[4], network->MAC[5]);
+	uint8 *ip = (uint8*)&network->IPv4;
+	printf_win(win, "Your IP address: %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+	ip = (uint8*)&network->router_IPv4;
+	printf_win(win, "Gateway:         %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+	ip = (uint8*)&network->dns;
+	printf_win(win, "DNS Server:      %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+	ip = (uint8*)&network->subnet_mask;
+	printf_win(win, "Subnet mask:     %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+}
+
+void shell_stack(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	Window *win_dbg = set_window_debug(win);
+	stack_dump();
+	set_window_debug(win_dbg);
+}
+
+void shell_countdown(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	int counter = 10;
+	char *nb = "9876543210";
+	for (int k=0; k<10; k++) {
+		for (int i=0; i<10000; i++) {
+			for (int j=0; j<10000; j++) {
+			}
+		}
+		win->action->putc(win, nb[k]);
+	}
+	win->action->putcr(win);
+}
+
+void shell_reboot(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	reboot();
+}
+
+void shell_dns(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0 || tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid hostname\n");
+		return;
+	}
+
+	uint ip = DNS_query(win->buffer + 4);
+	uint8 *ipv4 = (uint8*)&ip;
+	printf_win(win, "=> %d,%d,%d,%d\n", ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
+}
+
+void shell_ping(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length >= 7 &&
+		tokens->code == PARSE_NUMBER &&
+		tokens->next->code == PARSE_COMMA &&
+		tokens->next->next->code == PARSE_NUMBER &&
+		tokens->next->next->next->code == PARSE_COMMA &&
+		tokens->next->next->next->next->code == PARSE_NUMBER &&
+		tokens->next->next->next->next->next->code == PARSE_COMMA &&
+		tokens->next->next->next->next->next->next->code == PARSE_NUMBER) {
+
+		uint8 ip[4] = {
+			(uint8)tokens->value,
+			(uint8)tokens->next->next->value,
+			(uint8)tokens->next->next->next->next->value,
+			(uint8)tokens->next->next->next->next->next->next->value
+		};
+
+		printf_win(win, "Pinging %d,%d,%d,%d...\n", ip[0], ip[1], ip[2], ip[3]);
+		uint *ipv4 = (uint*)&ip;
+
+		uint ps_id = getpid();
+		ICMP_register_reply(ps_id);
+		ICMP_send_packet(*ipv4, ps_id);
+		uint8 status;
+
+		for (int i=0; i<2000000000; i++) {
+			status = ICMP_check_response(ps_id);
+			if (status != ICMP_TYPE_ECHO_REQUEST) {
+				if (status == ICMP_TYPE_ECHO_REPLY)
+					printf_win(win, "PONG!\n");
+				else if (status == ICMP_TYPE_ECHO_UNREACHABLE)
+					printf_win(win, "Host unreachable\n");
+				else
+					printf_win(win, "Unknown response code: %d\n", status);
+
+				ICMP_unregister_reply(ps_id);
+				return;
+			}
+		}
+
+		ICMP_unregister_reply(current_process);
+		printf_win(win, "Response timeout...\n");
+
+		DHCP_send_packet(*ipv4);
+
+		return;
+	}
+
+	printf_win(win, "Unknown IP address\n");
+}
+
+void shell_arp(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	ARP_print_table(win);
+}
+
+////////////////////////////////////////////////////////////////////////
+
+#define NB_CMDS	23
+
+ShellCmd commands[NB_CMDS] = {
+	{ .name = "help",		.function = shell_help,			.description = "This help\n" },
+	{ .name = "arp",		.function = shell_arp,			.description = "Prints the IP->MAC translation table\n" },
+	{ .name = "bg",			.function = shell_bg,			.description = "bg <nb> <nb> <nb> <nb>: draws a background rectangle [DEBUG]\n" },
+	{ .name = "cat",		.function = shell_cat,			.description = "cat <filename>: prints the content of a file\n" },
+	{ .name = "cc",			.function = shell_cc,			.description = "cc <filename>.f: compiles a formula into a native x86 executable\n" },
+	{ .name = "cd",			.function = shell_cd,			.description = "cd <directory>: change directory\n" },
+	{ .name = "cls",		.function = shell_cls,			.description = "Clears the screen\n" },
+	{ .name = "countdown",	.function = shell_countdown,	.description = "Countdown (to test multitasking)\n" },
+	{ .name = "debug",		.function = shell_debug,		.description = "Sets the debug mode on/off\n" },
+	{ .name = "dns",		.function = shell_dns,			.description = "dns <hostname>: resolves a hostname into an IP address\n" },
+	{ .name = "edit",		.function = shell_edit,			.description = "edit <filename>: file editor\n" },
+	{ .name = "fonts",		.function = shell_fonts,		.description = "Tests the system proportional fonts (press Enter to exit)\n" },
+	{ .name = "heap",		.function = shell_heap,			.description = "A detailed information of current heap allocations\n" },
+	{ .name = "ifconfig",	.function = shell_ifconfig,		.description = "Prints the network configuration\n" },
+	{ .name = "ls",			.function = shell_ls,			.description = "Displays the files in the current directory\n" },
+	{ .name = "load",		.function = shell_load,			.description = "load <filename>: loads a file into memory\n" },
+	{ .name = "mem",		.function = shell_mem,			.description = "mem: shows the main memory addresses\nmem <hex>: memory dump\n" },
+	{ .name = "pci",		.function = shell_pci,			.description = "Displays the available PCI devices\n" },
+	{ .name = "ping",		.function = shell_ping,			.description = "Ping another host on the network\n" },
+	{ .name = "reboot",		.function = shell_reboot,		.description = "Reboots CHAOS\n" },
+	{ .name = "run",		.function = shell_run,			.description = "run <filename>: runs an ELF executable\n" },
+	{ .name = "redraw",		.function = shell_redraw,		.description = "Redraws the current window\n" },
+	{ .name = "stack",		.function = shell_stack,		.description = "Prints the current stack trace\n" },
+};
+
+void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length > 0 && tokens->code == PARSE_WORD) {
+		for (int i=0; i<NB_CMDS; i++) {
+			if (!strcmp(tokens->value, commands[i].name)) {
+				printf_win(win, commands[i].description);
+				return;
+			}
+		}
+		printf_win(win, "Unknown command\n", tokens->value);
+		return;
+	}
+
+	printf_win(win, "%s", commands[0].name);
+
+	for (int i=1; i<NB_CMDS; i++) {
+		printf_win(win, ", %s", commands[i].name);
+	}
+
+	printf_win(win, "\n");
+}
+
+void prompt(Window *win, ShellEnv *env) {
+	win->action->puts(win, "CHAOS");
+	win->action->puts(win, env->path);
+	win->action->puts(win, "> ");
+}
+
+
+void process_command(Window *win, ShellEnv *env) {
+
 	Token *tokens;
+	uint length = 0;
 	int res = parse(win->buffer, &tokens);
 	if (res <= 0) {
 		for (int i=0; i<7-res; i++) win->action->putc(win, ' ');
@@ -438,19 +534,21 @@ void process_command(Window *win, ShellEnv *env) {
 		return;
 	}
 
-	if (tokens->code == PARSE_WORD && !strcmp(tokens->value, "bg") &&
-		tokens->next != 0 && tokens->next->code == PARSE_NUMBER &&
-		tokens->next->next != 0 && tokens->next->next->code == PARSE_NUMBER &&
-		tokens->next->next->next != 0 && tokens->next->next->next->code == PARSE_NUMBER &&
-		tokens->next->next->next->next != 0 && tokens->next->next->next->code == PARSE_NUMBER) {
+	Token *token_tmp = tokens;
+	while (token_tmp) {
+		token_tmp = token_tmp->next;
+		length++;
+	}
 
-		draw_background((int)tokens->next->value,
-						(int)tokens->next->next->value,
-						(int)tokens->next->next->next->value,
-						(int)tokens->next->next->next->next->value);
+	if (length >= 1 && tokens->code == PARSE_WORD) {
+		char *command = tokens->value;
 
-		parser_memory_cleanup(tokens);
-		return;
+		for (int i=0; i<NB_CMDS; i++) {
+			if (!strcmp(command, commands[i].name)) {
+				commands[i].function(win, env, tokens->next, length-1);
+				return;
+			}
+		}
 	}
 
 	int value;
@@ -474,7 +572,7 @@ void process_command(Window *win, ShellEnv *env) {
 	}
 
 	// If everything else fails
-	win->action->puts(win, "Invalid command");
+	win->action->puts(win, "Invalid command - type 'help' for the available commands");
 	win->action->putcr(win);
 }
 

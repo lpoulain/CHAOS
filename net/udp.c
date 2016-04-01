@@ -2,6 +2,7 @@
 #include "ipv4.h"
 #include "udp.h"
 #include "dhcp.h"
+#include "dns.h"
 
 #define UDP_HEADER_SIZE		8
 
@@ -69,6 +70,9 @@ void UDP_receive_packet(uint8 *buffer) {
 	switch(switch_endian16(header->dport)) {
 		case UDP_PORT_DHCP:
 			DHCP_receive_packet(buffer + UDP_HEADER_SIZE, header->size - UDP_HEADER_SIZE);
+			break;
+		case 0xCECE:
+			DNS_receive_packet(buffer + UDP_HEADER_SIZE, header->size - UDP_HEADER_SIZE);
 			break;
 	}
 }

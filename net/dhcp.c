@@ -182,7 +182,7 @@ void DHCP_receive_packet(uint8* buffer, uint16 size) {
 	network->subnet_mask = subnet_mask;
 	// Hard-coding the DNS from Level 3 (209.244.0.3)
 	network->dns = 0x0300F4D1;
-//	network->dns = dns;
+	network->dns = dns;
 
 	// We want to fill the ARP table to get
 	// the MAC address of the router

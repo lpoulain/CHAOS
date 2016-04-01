@@ -83,6 +83,8 @@ void DNS_receive_packet(uint8* buffer, uint16 size) {
 	unsigned char *hostname = buffer + 13;
 	uint *ipv4 = (uint*)(buffer + size - 4);
 
+	printf("DNS: %s -> %x\n", hostname, ipv4);
+
 	DNS_add_entry(hostname, *ipv4);
 }
 

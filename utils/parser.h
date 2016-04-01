@@ -12,6 +12,11 @@
 #define PARSE_PARENTHESE_OPEN	8
 #define PARSE_PARENTHESE_CLOSE	9
 #define PARSE_EQUAL				10
+#define PARSE_DOT				11
+#define PARSE_COMMA				12
+#define PARSE_COLON				13
+#define PARSE_SEMICOLON			14
+#define PARSE_HEX				15
 
 typedef struct token_s {
 	uint code;

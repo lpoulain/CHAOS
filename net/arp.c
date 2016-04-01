@@ -1,6 +1,7 @@
 #include "libc.h"
 #include "network.h"
 #include "ethernet.h"
+#include "display.h"
 
 #define ARP_REQUEST		0x0100
 #define ARP_REPLY		0x0200
@@ -25,6 +26,16 @@ typedef struct {
 
 ARPEntry ARP_table[100];
 uint16 nb_ARP_entries = 0;
+
+void ARP_print_table(Window *win) {
+	uint8 *ip;
+	for (int i=0; i<nb_ARP_entries; i++) {
+		ip = (uint8*)&(ARP_table[i].ipv4);
+		printf_win(win, "%d.%d.%d.%d => %X:%X:%X:%X:%X:%X\n",
+					ip[0], ip[1], ip[2], ip[3],
+					ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
+	}
+}
 
 uint8 *ARP_send_packet(uint ipv4) {
 	// Get an Ethernet packet

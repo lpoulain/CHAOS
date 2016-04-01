@@ -1,6 +1,7 @@
 #include "libc.h"
 #include "e1000.h"
 #include "network.h"
+#include "dhcp.h"
 #include "arp.h"
 
 #define NET_UNINITIALIZED	0

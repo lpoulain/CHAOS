@@ -16,6 +16,24 @@ int atoi_substr(char *str, int start, int end)
     return res;
 }
 
+uint atoi_hex_substr(char *str, int start, int end) {
+    uint result = 0, mult = 1;
+    int len = end;
+    do {
+        if (str[len] >= '0' && str[len] <= '9') result += mult * (str[len] - '0');
+        else if (str[len] >= 'A' && str[len] <= 'F') result += mult * (str[len] - 'A' + 10);
+        else if (str[len] >= 'a' && str[len] <= 'f') result += mult * (str[len] - 'a' + 10);
+        else {
+//            debug_i("Unknown character", str[len]);
+            return 0;
+        }
+        len--;
+        mult *= 16;
+    } while (len >= start);
+
+    return result;
+}
+
 #define NEXT_WORD while ( (c == ' ' || c == '\t' ||c == '\n' || c == 0x0A) && c != 0 ) c = cmd[++cmd_pos]
 
 Token **parser_new_token(Token **tokens, uint code, uint position, char *value) {
@@ -42,17 +60,30 @@ uint parse(char *cmd, Token **tokens) {
 		// Number
 		if (c >= '0' && c <= '9') {
 			token_start = cmd_pos;
-			c = cmd[++cmd_pos];
-			while (c >= '0' && c <= '9' && c != 0) c = cmd[++cmd_pos];
-			tokens = parser_new_token(tokens, PARSE_NUMBER, token_start, (char*)atoi_substr(cmd, token_start, cmd_pos-1));
 
-			if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
+			// Hex number
+			if (c == '0' && cmd[cmd_pos + 1] == 'x') {
+				cmd_pos++;
+				c = cmd[++cmd_pos];
+
+				while ( ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) && c != 0) c = cmd[++cmd_pos];
+				tokens = parser_new_token(tokens, PARSE_HEX, token_start, (char*)atoi_hex_substr(cmd, token_start, cmd_pos-1));
+
+				if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0 && c != ',') return -cmd_pos;
+			}
+			else {
+				c = cmd[++cmd_pos];
+				while (c >= '0' && c <= '9' && c != 0) c = cmd[++cmd_pos];
+				tokens = parser_new_token(tokens, PARSE_NUMBER, token_start, (char*)atoi_substr(cmd, token_start, cmd_pos-1));
+
+				if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0 && c != ',') return -cmd_pos;
+			}
 		}
 		// Symbol
-		else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+		else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.') {
 			token_start = cmd_pos;
 			c = cmd[++cmd_pos];
-			while (((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '_')) && c != 0) c = cmd[++cmd_pos];
+			while (((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || (c == '.') || (c == '_')) && c != 0 && c != ',') c = cmd[++cmd_pos];
 
 			word = (char *)malloc(cmd_pos - token_start + 1);
 			strncpy(word, cmd + token_start, cmd_pos - token_start);
@@ -60,7 +91,7 @@ uint parse(char *cmd, Token **tokens) {
 
 			tokens = parser_new_token(tokens, PARSE_WORD, token_start, word);
 
-			if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0) return -cmd_pos;
+			if (c != ' ' && c != 0x0A && c != '+' && c != '-' && c != '*' && c != '/' && c != '=' && c != '(' && c != ')' && c != 0 && c != ',') return -cmd_pos;
 		}
 		// +
 		else if (c == '+') {
@@ -87,6 +118,14 @@ uint parse(char *cmd, Token **tokens) {
 			tokens = parser_new_token(tokens, PARSE_PARENTHESE_CLOSE, cmd_pos, 0);
 			c = cmd[++cmd_pos];
 		}
+		else if (c == ',') {
+			tokens = parser_new_token(tokens, PARSE_COMMA, cmd_pos, 0);
+			c = cmd[++cmd_pos];
+		}
+/*		else if (c == '.') {
+			tokens = parser_new_token(tokens, PARSE_DOT, cmd_pos, 0);
+			c = cmd[++cmd_pos];
+		}*/
 		else return -cmd_pos;
 
 //		if (c != ' ' && c != '+' && c != '-' && c != '=' && c != 0) return -cmd_pos;

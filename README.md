@@ -6,11 +6,12 @@ Here are its highlights:
 
 - Full use of the i386 protected mode with paging and use of both kernel and user modes
 - Preemptive multitasking
-- A barebone windowing system with PS/2 mouse support (available in both text and VGA mode)
+- A simple windowing system with PS/2 mouse support (available in both text and VGA mode)
 - A text-based shell
 - FAT12 support (as well as long filename support), allowing shell commands such as "cd", "ls" and "cat"
 - Can run an ELF executable from the disk that prints on the screen using a system call
 - DWARF support, allowing to have a descriptive kernel stack trace with the function name, file and line number
+- A networking interface (Ethernet/IP/UDP stack, in progress)
 
 ## The processes
 
