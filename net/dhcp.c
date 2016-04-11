@@ -36,6 +36,8 @@ typedef struct __attribute__((packed)) {
 	uint magic_cookie;
 } DHCPHeader;
 
+uint txn_id = 0x36823B2C;
+
 void DHCP_send_packet() {
 //	printf_win(win, "MAC address: %X:%X:%X:%X:%X:%X\n", E1000_adapter.MAC[0], E1000_adapter.MAC[1], E1000_adapter.MAC[2], E1000_adapter.MAC[3], E1000_adapter.MAC[4], E1000_adapter.MAC[5]);
 	uint16 offset;
@@ -50,7 +52,7 @@ void DHCP_send_packet() {
 	header->msg_type = DHCP_REQUEST;
 	header->hardware_type = 0x01;
 	header->hardware_addr_len = 0x06;
-	header->txn_id = 0x36823B0C;
+	header->txn_id = txn_id++;
 
 	uint8 *MAC = network_get_MAC();
 	for (int i=0; i<6; i++) header->MAC[i] = MAC[i];
@@ -59,8 +61,6 @@ void DHCP_send_packet() {
 	unsigned char dhcp_options[60] = {
 		// DHCP message type (Discover)
 		0x35, 0x01, DHCP_TYPE_DISCOVER,
-		// Requested IP address
-//		0x32, 0x04, 0xC0, 0xA8, 0x00, 0x78,
 		// Hostname
 		0x0C, 0x05, 0x43, 0x48, 0x41, 0x4F, 0x53,
 		// Parameter request list
@@ -182,11 +182,12 @@ void DHCP_receive_packet(uint8* buffer, uint16 size) {
 	network->subnet_mask = subnet_mask;
 	// Hard-coding the DNS from Level 3 (209.244.0.3)
 	network->dns = 0x0300F4D1;
-	network->dns = dns;
+//	network->dns = 0x7900A8C0;
+//	network->dns = dns;
 
 	// We want to fill the ARP table to get
 	// the MAC address of the router
 	if (network->router_IPv4 != 0) {
-		ARP_send_packet(network->router_IPv4);
+		ARP_send_request(network->router_IPv4);
 	}
 }

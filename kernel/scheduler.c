@@ -17,7 +17,11 @@ void scheduler_phase(int hz)
     outportb(0x40, divisor >> 8);     /* Set high byte of divisor */
 }
 
-int timer_ticks = 0;
+uint timer_ticks = 0;
+
+uint get_ticks() {
+	return timer_ticks;
+}
 
 static void scheduler_handler(registers_t regs)
 {

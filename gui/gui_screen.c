@@ -102,7 +102,7 @@ int draw_int(int nb, int x, int y) {
 //////////////////////////////////
 
 void gui_debug_scroll(Window *win) {
-	getch();
+//	getch();
 	win->cursor_y = 0;
 }
 

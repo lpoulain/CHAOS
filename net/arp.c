@@ -2,6 +2,7 @@
 #include "network.h"
 #include "ethernet.h"
 #include "display.h"
+#include "debug.h"
 
 #define ARP_REQUEST		0x0100
 #define ARP_REPLY		0x0200
@@ -32,12 +33,12 @@ void ARP_print_table(Window *win) {
 	for (int i=0; i<nb_ARP_entries; i++) {
 		ip = (uint8*)&(ARP_table[i].ipv4);
 		printf_win(win, "%d.%d.%d.%d => %X:%X:%X:%X:%X:%X\n",
-					ip[0], ip[1], ip[2], ip[3],
-					ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
+				   ip[0], ip[1], ip[2], ip[3],
+				   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
 	}
 }
 
-uint8 *ARP_send_packet(uint ipv4) {
+void ARP_send_request(uint ipv4) {
 	// Get an Ethernet packet
 	uint16 offset;
 	uint8 *buffer = ethernet_create_packet(ETHERNET_ARP, 0xFFFFFFFF, ARP_HEADER_SIZE + 18, &offset);
@@ -59,6 +60,30 @@ uint8 *ARP_send_packet(uint ipv4) {
 	ethernet_send_packet(buffer, offset + 18 + ARP_HEADER_SIZE);
 }
 
+uint8 *ARP_send_reply(uint ipv4, uint8 *MAC_dest) {
+	// Get an Ethernet packet
+	uint16 offset;
+	uint8 *buffer = ethernet_create_packet(ETHERNET_ARP, ipv4, ARP_HEADER_SIZE + 18, &offset);
+
+	// Append the IPv4 header
+	ARPPacket *header = (ARPPacket*)(buffer + offset);
+	header->hw_type = 0x0100;
+	header->protocol = 0x0008;
+	header->hw_size = 6;
+	header->protocol_size = 4;
+	header->opcode = ARP_REPLY;
+	header->sender_ip = network_get_IPv4();
+	header->target_ip = ipv4;
+
+	uint8 *MAC_src = network_get_MAC();
+	for (int i=0; i<6; i++) {
+		header->sender_MAC[i] = MAC_src[i];
+		header->target_MAC[i] = MAC_dest[i];
+	}
+
+	ethernet_send_packet(buffer, offset + 18 + ARP_HEADER_SIZE);
+}
+
 uint8 *ARP_get_MAC(uint ipv4) {
 	for (int i=0; i<nb_ARP_entries; i++) {
 		if (ARP_table[i].ipv4 == ipv4) return (uint8*)&ARP_table[i].MAC;
@@ -68,7 +93,7 @@ uint8 *ARP_get_MAC(uint ipv4) {
 
 	// If the IP address is from the local network, then perform an ARP request to get its MAC address
 	if ((ipv4 & 0x00FFFFFF) == (network_get_IPv4() & 0x00FFFFFF)) {
-		ARP_send_packet(ipv4);
+		ARP_send_request(ipv4);
 
 		for (int j=0; j<2000000000; j++) {
 			for (int i=0; i<nb_ARP_entries; i++) {
@@ -100,16 +125,22 @@ void ARP_add_MAC(uint ipv4, uint8 *MAC) {
 
 	nb_ARP_entries++;
 
-	uint8 *ip = (uint8*)&ipv4;
-	printf("%d,%d,%d,%d => %X:%X:%X:%X:%X:%X\n",
-		   ip[0], ip[1], ip[2], ip[3],
-		   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
+	if (is_debug()) printf("%i => %X:%X:%X:%X:%X:%X\n",
+						   ipv4,
+		   				   ARP_table[i].MAC[0], ARP_table[i].MAC[1], ARP_table[i].MAC[2], ARP_table[i].MAC[3], ARP_table[i].MAC[4], ARP_table[i].MAC[5]);
 }
 
 void ARP_receive_packet(uint8 *buffer) {
 	ARPPacket *header = (ARPPacket*)buffer;
+
 	if (header->opcode == ARP_REPLY) {
-		ARP_add_MAC(header->sender_ip, &header->sender_MAC);
+		if (is_debug()) printf("=> [ARP reply %i -> %X:%X:%X:%X:%X:%X]\n", header->sender_ip, header->sender_MAC[0], header->sender_MAC[1], header->sender_MAC[2], header->sender_MAC[3], header->sender_MAC[4], header->sender_MAC[5]);
+		ARP_add_MAC(header->sender_ip, (uint8*)&header->sender_MAC);
+	}
+	else if (header->opcode == ARP_REQUEST) {
+		if (is_debug()) printf("=> [ARP request from %i]\n", header->sender_ip);
+		ARP_add_MAC(header->sender_ip, (uint8*)&header->sender_MAC);
+		ARP_send_reply(header->sender_ip, (uint8*)&header->sender_MAC);
 	}
 }
 

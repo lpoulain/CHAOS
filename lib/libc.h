@@ -41,6 +41,8 @@ void gui_dump_mem(void *ptr, int nb_bytes, int row);
 uint16 switch_endian16(uint16 nb);
 uint switch_endian32(uint nb);
 
+uint rand();
+
 unsigned char getch();
 
 void debug_i(char *msg, uint nb);

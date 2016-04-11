@@ -2,7 +2,6 @@
 #define __NETWORK_H
 
 #include "libc.h"
-#include "network.h"
 
 typedef struct {
 	unsigned char MAC[6];
@@ -18,7 +17,7 @@ void init_network();
 uint8 *network_get_MAC();
 uint8 *network_get_router_MAC();
 uint network_get_IPv4();
-uint network_get_dns();
+uint network_get_DNS();
 void network_set_IPv4(uint IP);
 Network *network_get_info();
 

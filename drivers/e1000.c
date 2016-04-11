@@ -3,6 +3,7 @@
 #include "kheap.h"
 #include "isr.h"
 #include "pci.h"
+#include "ethernet.h"
 
 uint16 checksum(uint8 *addr, uint count)
 {
@@ -179,7 +180,7 @@ void E1000_handle_receive(registers_t regs) {
     while((E1000_adapter.rx_descs[E1000_adapter.rx_cur].status & 0x1))
     {
             got_packet = 1;
-            uint8 *buf = (uint8 *)(E1000_adapter.rx_descs[E1000_adapter.rx_cur].addr);
+            uint8 *buf = (uint8 *)(uint)(E1000_adapter.rx_descs[E1000_adapter.rx_cur].addr);
             uint16 len = E1000_adapter.rx_descs[E1000_adapter.rx_cur].length;
  
             // Here you should inject the received packet into your network stack
@@ -213,9 +214,9 @@ void E1000_handle_receive(registers_t regs) {
             	buf[4] == 0xFF &&
             	buf[5] == 0xFF)
                ) {
-	            printf("%X:%X:%X:%X:%X:%X => %x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf);
+//	            printf("%X:%X:%X:%X:%X:%X => %x\n", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf);
 //	        	dump_mem(buf, 320, 14);
-	        	ethernet_receive_packet(buf);
+	        	ethernet_receive_packet(buf, len);
 	    	}
 
 /*	    	draw_ptr(flag_me, 0, 0);
@@ -288,14 +289,14 @@ void E1000_rxinit()
     for(int i = 0; i < NUM_RX_DESC; i++)
     {
 //        rx_descs[i] = (E1000RxDesc *)((uint8 *)rx_descs + i*16);
-        E1000_adapter.rx_descs[i].addr = (uint64)(uint8 *)kmalloc_pages(2, "Eth receive buffer");
+        E1000_adapter.rx_descs[i].addr = (uint64)(uint)(uint8 *)kmalloc_pages(2, "Eth receive buffer");
         E1000_adapter.rx_descs[i].status = 0;
     }
  
-    E1000_write_command(REG_TXDESCLO, (uint)((uint64)ptr >> 32) );
-    E1000_write_command(REG_TXDESCHI, (uint)((uint64)ptr & 0xFFFFFFFF));
+    E1000_write_command(REG_TXDESCLO, (uint)((uint64)(uint)ptr >> 32) );
+    E1000_write_command(REG_TXDESCHI, (uint)((uint64)(uint)ptr & 0xFFFFFFFF));
  
-    E1000_write_command(REG_RXDESCLO, (uint64)ptr);
+    E1000_write_command(REG_RXDESCLO, (uint64)(uint)ptr);
     E1000_write_command(REG_RXDESCHI, 0);
  
     E1000_write_command(REG_RXDESCLEN, NUM_RX_DESC * 16);

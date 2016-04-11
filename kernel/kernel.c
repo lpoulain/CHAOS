@@ -76,7 +76,7 @@ extern uint boot_flags();
 extern void init_debug();
 extern void jump_usermode();
 extern void init_syscalls();
-extern void init_pci();
+extern void init_PCI();
 extern void init_network();
 
 int main (uint esp) {

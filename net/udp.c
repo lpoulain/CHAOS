@@ -3,6 +3,7 @@
 #include "udp.h"
 #include "dhcp.h"
 #include "dns.h"
+#include "debug.h"
 
 #define UDP_HEADER_SIZE		8
 
@@ -22,16 +23,21 @@ uint16 UDP_checksum(UDPHeader *header) {
 		sum += switch_endian16(*body++);
 	}
 
+	if (body_size % 2 == 1) {
+		uint16 tmp = (*body) & 0xFF;
+		sum += switch_endian16(tmp);
+	}
+	
 	// Because the UDP checksum is using the source and dest
 	// IP address for the checksum, we're looking at the IP header
 	IPv4Header *header_ip = (IPv4Header*)((uint8*)header - IPV4_HEADER_SIZE);
 
-	sum += header_ip->ip_src & 0xFFFF;
-	sum += header_ip->ip_src >> 16;
-	sum += header_ip->ip_dst & 0xFFFF;
-	sum += header_ip->ip_dst >> 16;
+	sum += switch_endian16(header_ip->ip_src & 0xFFFF);
+	sum += switch_endian16((header_ip->ip_src >> 16) & 0xFFFF);
+	sum += switch_endian16(header_ip->ip_dst & 0xFFFF);
+	sum += switch_endian16((header_ip->ip_dst >> 16) & 0xFFFF);
 	sum += switch_endian16(header->size);
-	sum += 0x11;
+	sum += IPV4_PROTOCOL_UDP;
 
 	while (sum >> 16) {
 		sum = (sum & 0xFFFF) + (sum >> 16);
@@ -66,13 +72,18 @@ void UDP_send_packet(uint8 *buffer, uint16 size, uint16 message_offset) {
 
 void UDP_receive_packet(uint8 *buffer) {
 	UDPHeader *header = (UDPHeader*)buffer;
+	if (is_debug()) printf("[UDP]");
 
 	switch(switch_endian16(header->dport)) {
 		case UDP_PORT_DHCP:
+			if (is_debug()) printf("[DHCP]\n");
 			DHCP_receive_packet(buffer + UDP_HEADER_SIZE, header->size - UDP_HEADER_SIZE);
 			break;
-		case 0xCECE:
+		case UDP_PORT_DNS:
+			if (is_debug()) printf("[DNS]\n");
 			DNS_receive_packet(buffer + UDP_HEADER_SIZE, header->size - UDP_HEADER_SIZE);
 			break;
+		default:
+			printf("[%d]\n", switch_endian16(header->dport));
 	}
 }

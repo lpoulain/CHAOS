@@ -1,6 +1,13 @@
 #include "libc.h"
 #include "network.h"
 #include "udp.h"
+#include "display.h"
+
+#define DNS_FLAG_QUERY			0x0001
+#define DNS_FLAG_RESPONSE		0x0080
+
+#define DNS_TYPE_HOST_ADDRESS	0x0100
+#define DNS_TYPE_ALIAS			0x0500
 
 typedef struct __attribute__((packed)) {
 	uint16 txn_id;
@@ -11,6 +18,19 @@ typedef struct __attribute__((packed)) {
 	uint16 addnl_rr;
 } DNSHeader;
 
+typedef struct __attribute__((packed)) {
+	uint16 name;
+	uint16 type;
+	uint16 class;
+	uint time_to_live;
+	uint16 data_length;
+} DNSAnswer;
+
+typedef struct {
+	uint8 *hostname;
+	uint16 alias;
+} DNSAlias;
+
 typedef struct {
 	char hostname[256];
 	uint ipv4;
@@ -18,6 +38,12 @@ typedef struct {
 
 DNSEntry DNS_table[100];
 uint nb_DNS_entries;
+
+void DNS_print_table(Window *win) {
+	for (int i=0; i<nb_DNS_entries; i++) {
+		printf_win(win, "%s => %i\n", &DNS_table[i].hostname, DNS_table[i].ipv4);
+	}
+}
 
 int DNS_get_entry(char *hostname) {
 	for (int i=0; i<nb_DNS_entries; i++) {
@@ -35,8 +61,21 @@ void DNS_add_entry(char *hostname, uint ipv4) {
 		return;
 	}
 
-	strcpy(DNS_table[nb_DNS_entries].hostname, hostname);
+	strcpy(DNS_table[nb_DNS_entries].hostname, hostname+1);
+
+	char c = hostname[0];
+	idx = c;
+	c = DNS_table[nb_DNS_entries].hostname[idx];
+
+	while (c) {
+		DNS_table[nb_DNS_entries].hostname[idx] = '.';
+		idx += c + 1;
+		c = DNS_table[nb_DNS_entries].hostname[idx];
+	}
+
 	DNS_table[nb_DNS_entries].ipv4 = ipv4;
+
+//	printf("DNS: %s -> %i\n", DNS_table[nb_DNS_entries].hostname, DNS_table[nb_DNS_entries].ipv4);
 	nb_DNS_entries++;
 }
 
@@ -47,12 +86,14 @@ void DNS_send_packet(char *hostname) {
 
 	// We want to send an UDP packet to IP address 255.255.255.255 (broadcast)
 	// source port=68, dest port=67 whose message is 300 bytes long (excluding headers)
-	uint8* buffer = UDP_create_packet(network_get_DNS(), 0xCECE, UDP_PORT_DNS, 18 + len, &offset);
+	Network *network = network_get_info();
+
+	uint8* buffer = UDP_create_packet(network_get_DNS(), 53, UDP_PORT_DNS, 18 + len, &offset);
 
 	// Append the HDCP header
 	DNSHeader *header = (DNSHeader*)(buffer + offset);
-	header->txn_id = 0x9145;
-	header->flags = 0x0001;
+	header->txn_id = 0x0000;
+	header->flags = DNS_FLAG_QUERY;
 	header->questions = switch_endian16(1);
 	header->answer_rr = 0;
 	header->authority_rr = 0;
@@ -80,12 +121,55 @@ void DNS_send_packet(char *hostname) {
 void DNS_receive_packet(uint8* buffer, uint16 size) {
 	DNSHeader *header = (DNSHeader*)buffer;
 
-	unsigned char *hostname = buffer + 13;
-	uint *ipv4 = (uint*)(buffer + size - 4);
+	// Check that this is a response
+	if (!(header->flags & DNS_FLAG_RESPONSE)) return;
 
-	printf("DNS: %s -> %x\n", hostname, ipv4);
+	uint16 questions = switch_endian16(header->questions), answers = switch_endian16(header->answer_rr);
+	DNSAlias aliases[10];
+	int nb_aliases = 0;
+	char c;
+	uint idx = sizeof(DNSHeader);
+	uint *ipv4;
 
-	DNS_add_entry(hostname, *ipv4);
+//	printf("%d questions, %d answers\n", questions, answers);
+
+	// Goes through all the questions
+	for (int i=0; i<questions; i++) {
+		c = buffer[idx];
+		while (c) {
+			idx += c + 1;
+			c = buffer[idx];
+		}
+
+		idx += 5;
+	}
+
+	// Goes through all the responses
+	DNSAnswer *answer;
+	for (int i=0; i<answers; i++) {
+		answer = (DNSAnswer*)(buffer +idx);
+
+		if (answer->type == DNS_TYPE_ALIAS) {
+			uint16 *a = (uint16*)(buffer + idx + sizeof(DNSAnswer));
+//			printf("Alias %s => %x\n", buffer + (answer->//name >> 8), *a);
+			aliases[nb_aliases].hostname = buffer + (answer->name >> 8);
+			aliases[nb_aliases++].alias = *a;
+		}
+		else if (answer->type == DNS_TYPE_HOST_ADDRESS) {
+			ipv4 = (uint*)(buffer + idx + sizeof(DNSAnswer));
+//			printf("Adding %s => %i\n", buffer + ((answer->name & 0xFF00) >> 8), *ipv4);
+			DNS_add_entry(buffer + (answer->name >> 8), *ipv4);
+
+			for (int j=0; j<nb_aliases; j++) {
+				if (answer->name == aliases[j].alias) {
+//					printf("Adding %s => %i\n", aliases[j].hostname, *ipv4);
+					DNS_add_entry(aliases[j].hostname, *ipv4);
+				}
+			}
+		}
+
+		idx += sizeof(DNSAnswer) + switch_endian16(answer->data_length);
+	}
 }
 
 uint DNS_query(char *hostname) {

@@ -10,6 +10,8 @@
 #include "stdarg.h"
 #include "debug_line.h"
 
+extern uint get_ticks();
+
 char *strcpy(char *dest, const char *src) {
     char *save = dest;
     while(*dest++ = *src++);
@@ -268,6 +270,19 @@ uint switch_endian32(uint nb) {
            ((nb<<24)&0xff000000);
 }
 
+static unsigned long int rand_next = 0;
+
+uint rand() // RAND_MAX assumed to be 32767
+{
+    if (rand_next == 0) {
+        rand_next = get_ticks() % 32768;
+    }
+
+    rand_next = rand_next * 1103515245 + 12345;
+    return (unsigned int)(rand_next / 65536) % 32768;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////
 // Debug functions
 ///////////////////////////////////////////////////////////////////////////////////
@@ -288,6 +303,8 @@ void _printf(Window *win, const char *format, va_list args) {
     int x = 0;
     char *str;
     char tmp[3];
+    uint ip;
+    uint8 *ip_ptr;
 
     for (; *format != 0; ++format) {
         if (*format == '\n') {
@@ -314,6 +331,17 @@ void _printf(Window *win, const char *format, va_list args) {
                 case 'X':
                     ctoa_hex(va_arg(args, unsigned int), (unsigned char*)&tmp);
                     win->action->puts(win, tmp);
+                    break;
+                case 'i':
+                    ip = va_arg(args, unsigned int);
+                    ip_ptr = (uint8*)&ip;
+                    win->action->putnb(win, ip_ptr[0]);
+                    win->action->putc(win, '.');
+                    win->action->putnb(win, ip_ptr[1]);
+                    win->action->putc(win, '.');
+                    win->action->putnb(win, ip_ptr[2]);
+                    win->action->putc(win, '.');
+                    win->action->putnb(win, ip_ptr[3]);
                     break;
             }
         }

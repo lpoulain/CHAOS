@@ -1,6 +1,7 @@
 #include "libc.h"
 #include "ipv4.h"
 #include "icmp.h"
+#include "debug.h"
 
 #define ICMP_HEADER_SIZE 		16
 
@@ -91,12 +92,13 @@ void ICMP_send_packet(uint ipv4, uint ps_id) {
 void ICMP_receive_packet(uint ipv4, uint8* buffer_ping, uint16 size) {
 
 	ICMPHeader *header_ping = (ICMPHeader*)buffer_ping;
-	printf("Pong from %x, code=%d\n", ipv4, header_ping->type);
+	if (is_debug()) printf("[ICMP]\n");
+	//printf("Pong from %x, code=%d\n", ipv4, header_ping->type);
 
 	if (header_ping->type == ICMP_TYPE_ECHO_REPLY || header_ping->type == ICMP_TYPE_ECHO_UNREACHABLE) {
 		for (int i=0; i<2; i++) {
 			if (registration[i].txn_id == header_ping->id) {
-				registration[i].status = header_ping->id;
+				registration[i].status = header_ping->type;
 				return;
 			}
 		}

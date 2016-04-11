@@ -24,6 +24,6 @@ typedef struct __attribute__((packed)) {
 
 uint8 *IPv4_create_packet(uint8 protocol, uint ipv4, uint16 size, uint16 *offset);
 void IPv4_send_packet(uint8 *buffer, uint16 size, uint16 message_offset);
-void IPv4_receive_packet(uint8 *buffer);
+void IPv4_receive_packet(uint8 *buffer, uint16 size);
 
 #endif

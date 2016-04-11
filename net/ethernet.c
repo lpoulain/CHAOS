@@ -34,17 +34,14 @@ uint8 *ethernet_create_packet(uint16 protocol, uint ipv4, uint16 size, uint16 *o
 }
 
 void ethernet_send_packet(uint8* buffer, uint16 size) {
+	EthernetHeader *header = (EthernetHeader*)buffer;
+//	printf("%X:%X:%X:%X:%X:%X <=\n", header->dest[0], header->dest[1], header->dest[2], header->dest[3], header->dest[4], header->dest[5]);
 	E1000_send_packet(buffer, size);
 
-	if (size == 98) {
-//	dump_mem(buffer, 342, 14);
-//	for (;;);
-	}
-	
 	kfree(buffer);
 }
 
-void ethernet_receive_packet(uint8* buffer) {
+void ethernet_receive_packet(uint8* buffer, uint16 size) {
 	EthernetHeader *header = (EthernetHeader*)buffer;
 	uint8 *MAC_router;
 	IPv4Header *header_ip;
@@ -60,9 +57,9 @@ void ethernet_receive_packet(uint8* buffer) {
 				header->src[5] != MAC_router[5]) {
 
 				header_ip = (IPv4Header*)(buffer + ETHERNET_HEADER_SIZE);
-				ARP_add_MAC(header_ip->ip_src, &header->src);
+				ARP_add_MAC(header_ip->ip_src, (uint8*)&header->src);
 			}
-			IPv4_receive_packet(buffer + ETHERNET_HEADER_SIZE);
+			IPv4_receive_packet(buffer + ETHERNET_HEADER_SIZE, size - ETHERNET_HEADER_SIZE);
 			break;
 		case ETHERNET_ARP:
 			ARP_receive_packet(buffer + ETHERNET_HEADER_SIZE);

@@ -17,6 +17,8 @@
 #include "network.h"
 #include "icmp.h"
 #include "arp.h"
+#include "dns.h"
+#include "http.h"
 
 #define DISK_ERR_DOES_NOT_EXIST	-2
 
@@ -67,6 +69,35 @@ uint dump_mem_addr = 0;
 ////////////////////////////////////////////////////////////////////////
 // All the Shell commands
 ////////////////////////////////////////////////////////////////////////
+
+uint str2ip(uint8* string) {
+	uint ip;
+	uint8 *ip_ptr = (uint8*)&ip, *str_start = string;
+	int str_pos = 0;
+
+	for (int i=0; i<4; i++) {
+		while ((string[str_pos] >= '0') &&
+			   (string[str_pos] <= '9'))
+			str_pos++;
+
+		// Unknown character
+		if (string[str_pos] != '.' &&
+			(string[str_pos] != 0 || i < 3))
+			return 0;
+
+		// It's the end of the string and we don't have 4 digits
+		if (string[str_pos] == 0 && i < 3) return 0;
+
+		// Empty number between two separators
+		if (str_pos <= (uint)str_start+1) return 0;
+
+		string[str_pos] = 0;
+
+		*ip_ptr++ = (uint8)atoi(str_start);
+	}
+
+	return ip;
+}
 
 void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length);
 
@@ -359,17 +390,18 @@ void shell_fonts(Window *win, ShellEnv *env, Token *tokens, uint length) {
 }
 
 void shell_ifconfig(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length > 0 && tokens->code == PARSE_WORD && !strncmp(tokens->value, "r", 1)) {
+		DHCP_send_packet();
+		return;
+	}
+
 	Network *network = network_get_info();
 
 	printf_win(win, "MAC Address:     %X:%X:%X:%X:%X:%X\n", network->MAC[0], network->MAC[1], network->MAC[2], network->MAC[3], network->MAC[4], network->MAC[5]);
-	uint8 *ip = (uint8*)&network->IPv4;
-	printf_win(win, "Your IP address: %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-	ip = (uint8*)&network->router_IPv4;
-	printf_win(win, "Gateway:         %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-	ip = (uint8*)&network->dns;
-	printf_win(win, "DNS Server:      %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
-	ip = (uint8*)&network->subnet_mask;
-	printf_win(win, "Subnet mask:     %d,%d,%d,%d\n", ip[0], ip[1], ip[2], ip[3]);
+	printf_win(win, "Your IP address: %i\n", network->IPv4);
+	printf_win(win, "Gateway:         %i\n", network->router_IPv4);
+	printf_win(win, "DNS Server:      %i\n", network->dns);
+	printf_win(win, "Subnet mask:     %i\n", network->subnet_mask);
 }
 
 void shell_stack(Window *win, ShellEnv *env, Token *tokens, uint length) {
@@ -396,14 +428,18 @@ void shell_reboot(Window *win, ShellEnv *env, Token *tokens, uint length) {
 }
 
 void shell_dns(Window *win, ShellEnv *env, Token *tokens, uint length) {
-	if (length == 0 || tokens->code != PARSE_WORD) {
+	if (length == 0) {
+		DNS_print_table(win);
+		return;
+	}
+	
+	if (tokens->code != PARSE_WORD) {
 		printf_win(win, "Invalid hostname\n");
 		return;
 	}
 
 	uint ip = DNS_query(win->buffer + 4);
-	uint8 *ipv4 = (uint8*)&ip;
-	printf_win(win, "=> %d,%d,%d,%d\n", ipv4[0], ipv4[1], ipv4[2], ipv4[3]);
+	printf_win(win, "=> %i\n", ip);
 }
 
 void shell_ping(Window *win, ShellEnv *env, Token *tokens, uint length) {
@@ -417,13 +453,13 @@ void shell_ping(Window *win, ShellEnv *env, Token *tokens, uint length) {
 		tokens->next->next->next->next->next->next->code == PARSE_NUMBER) {
 
 		uint8 ip[4] = {
-			(uint8)tokens->value,
-			(uint8)tokens->next->next->value,
-			(uint8)tokens->next->next->next->next->value,
-			(uint8)tokens->next->next->next->next->next->next->value
+			(uint8)(uint)tokens->value,
+			(uint8)(uint)tokens->next->next->value,
+			(uint8)(uint)tokens->next->next->next->next->value,
+			(uint8)(uint)tokens->next->next->next->next->next->next->value
 		};
 
-		printf_win(win, "Pinging %d,%d,%d,%d...\n", ip[0], ip[1], ip[2], ip[3]);
+		printf_win(win, "Pinging %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
 		uint *ipv4 = (uint*)&ip;
 
 		uint ps_id = getpid();
@@ -446,10 +482,8 @@ void shell_ping(Window *win, ShellEnv *env, Token *tokens, uint length) {
 			}
 		}
 
-		ICMP_unregister_reply(current_process);
+		ICMP_unregister_reply(ps_id);
 		printf_win(win, "Response timeout...\n");
-
-		DHCP_send_packet(*ipv4);
 
 		return;
 	}
@@ -461,9 +495,23 @@ void shell_arp(Window *win, ShellEnv *env, Token *tokens, uint length) {
 	ARP_print_table(win);
 }
 
+void shell_http(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0) {
+		printf_win(win, "Please pass a hostname\n");
+		return;
+	}
+
+	if (tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid hostname\n");
+		return;
+	}
+
+	HTTP_get(win, tokens->value);
+}
+
 ////////////////////////////////////////////////////////////////////////
 
-#define NB_CMDS	23
+#define NB_CMDS	24
 
 ShellCmd commands[NB_CMDS] = {
 	{ .name = "help",		.function = shell_help,			.description = "This help\n" },
@@ -489,6 +537,7 @@ ShellCmd commands[NB_CMDS] = {
 	{ .name = "run",		.function = shell_run,			.description = "run <filename>: runs an ELF executable\n" },
 	{ .name = "redraw",		.function = shell_redraw,		.description = "Redraws the current window\n" },
 	{ .name = "stack",		.function = shell_stack,		.description = "Prints the current stack trace\n" },
+	{ .name = "http",		.function = shell_http,			.description = "Sends an HTTP GET request\n" },
 };
 
 void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length) {
@@ -513,9 +562,10 @@ void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length) {
 }
 
 void prompt(Window *win, ShellEnv *env) {
-	win->action->puts(win, "CHAOS");
-	win->action->puts(win, env->path);
-	win->action->puts(win, "> ");
+	printf_win(win, "CHAOS%s> ", env->path);
+//	win->action->puts(win, "CHAOS ");
+//	win->action->puts(win, env->path);
+//	win->action->puts(win, "> ");
 }
 
 
