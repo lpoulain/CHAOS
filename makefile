@@ -1,8 +1,8 @@
 SDIR = kernel lib drivers utils fs net
-C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c fs/*.c net/*.c)
-HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h fs/*.h net/*.h)
+C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c fs/*.c net/*.c lib/crypto/*.c)
+HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h fs/*.h net/*.h lib/crypto/*.h)
 OBJ = ${C_SOURCES:.c=.o}
-INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui -I ./fs -I ./net
+INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui -I ./fs -I ./net -I ./lib/crypto
 
 All: chaos.img
 
@@ -68,3 +68,4 @@ clean:
 	rm -rf utils/*.o
 	rm -rf fs/*.o
 	rm -rf net/*.o
+	rm -rf lib/crypto/*.o

@@ -26,7 +26,7 @@ typedef struct {
 	uint high_pc;
 } FunctionRange;
 
-static FunctionRange functionRanges[300];
+static FunctionRange functionRanges[500];
 static uint nb_function_ranges = 0;
 
 typedef struct __attribute__((packed)) {
@@ -75,7 +75,7 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 // Goes through the Debugging Information Entries (DIE)
 // and finds the subprogram whose range covers the stack
 void debug_info_load(Elf *elf) {
-	unsigned char *DIE_schema[100];
+	unsigned char *DIE_schema[200];
 	unsigned char *end_section = elf->section[ELF_SECTION_DEBUG_INFO].end;
 	unsigned char *die = elf->section[ELF_SECTION_DEBUG_INFO].start;
 	unsigned char *start = die;

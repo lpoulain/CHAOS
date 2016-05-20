@@ -183,9 +183,10 @@ void *heap_alloc(uint nb_bytes, Heap *h) {
     // Out of memory
     if (candidate_size == NO_MORE_SPACE) {
         printf("No more space\n");
-        heap_print(&gui_debug_win, h);
+        stack_dump();
+//        heap_print(&gui_debug_win, h);
 
-        dump_mem((void*)h->start, 200, 20);
+//        dump_mem((void*)h->start, 200, 20);
 
         for (;;);
         return 0;

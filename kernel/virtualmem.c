@@ -181,8 +181,8 @@ void check_forbidden_page() {
     if (!strncmp(forbidden_page, (char*)&forbidden_page_motif, 177)) {
         printf("Forbidden page changed (%x)\n", forbidden_page);
         dump_mem(forbidden_page, 320, 14);
-        kheap_print(&gui_debug_win);
-//        stack_dump();
+//        kheap_print(&gui_debug_win);
+        stack_dump();
         for(;;);
     }
 }

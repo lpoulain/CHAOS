@@ -159,8 +159,40 @@ void gui_cls(Window *win) {
 	gui_set_cursor(win);
 }
 
-void gui_puts(Window *win, const char *msg) {
+void gui_nputs(Window *win, const char *msg, uint len2) {
 	uint substring_len;
+	uint bytes_to_end;
+	const char *msg_start = msg;
+	uint len = len2;
+
+	// While the line to print is larger than the number of characters left on the row
+	// Cut the first part to fill the row and go to the next line
+	while (win->cursor_x + len * 8 > win->right_x - 2) {
+		substring_len = (win->right_x - 2 - win->cursor_x) / 8;
+		draw_string_n(msg_start, win->cursor_x, win->cursor_y,  substring_len);
+		memcpy(win->text + win->text_end, msg_start, substring_len);
+
+		msg_start += substring_len;
+		win->text_end += substring_len;
+		len -= substring_len;
+
+		// This call updates win->cursor_x and win->cursor_y
+		gui_next_line(win);
+	}
+
+	draw_string_n(msg_start, win->cursor_x, win->cursor_y, len);
+	memcpy(win->text + win->text_end, msg_start, len);
+
+	win->text_end += len;
+	win->cursor_x += len*8;
+
+	gui_set_cursor(win);
+}
+
+void gui_puts(Window *win, const char *msg) {
+	gui_nputs(win, msg, strlen(msg));
+}
+/*	uint substring_len;
 	uint bytes_to_end;
 	const char *msg_start = msg;
 	uint len = strlen(msg);
@@ -187,7 +219,7 @@ void gui_puts(Window *win, const char *msg) {
 	win->cursor_x += len*8;
 
 	gui_set_cursor(win);
-}
+}*/
 
 void gui_putc(Window *win, char c) {
 	draw_char(c, win->cursor_x, win->cursor_y);
@@ -314,6 +346,7 @@ struct WindowAction gui_window_action = {
 	.init = &gui_init,
 	.cls = &gui_cls,
 	.puts = &gui_puts,
+	.nputs = &gui_nputs,
 	.putc = &gui_putc,
 	.puti = &gui_puti,
 	.putnb = &gui_putnb,
@@ -344,7 +377,7 @@ Window gui_win1 = {
 Window gui_win2 = {
 	.left_x = 20,
 	.right_x = 630,
-	.top_y = 230,
+	.top_y = 130,
 	.bottom_y = 470,
 	.action = &gui_window_action
 };

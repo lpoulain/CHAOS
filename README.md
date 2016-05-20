@@ -7,7 +7,8 @@ Here are its highlights:
 - Full use of the i386 protected mode with paging and use of both kernel and user modes
 - Preemptive multitasking
 - A simple windowing system with PS/2 mouse support (available in both text and VGA mode)
-- A networking stack (Ethernet/IP/UDP/TCP, in progress)
+- A networking stack (Ethernet/IP/UDP/TCP)
+- A command to download data from an HTTP or HTTPS server
 - A text-based shell
 - FAT12 support (as well as long filename support), allowing shell commands such as "cd", "ls" and "cat"
 - Can run an ELF executable from the disk that prints on the screen using a system call

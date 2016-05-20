@@ -10,6 +10,7 @@ The networking layer implements the following protocols:
          - DHCP (Dynamic Host Configuration Protocol): used at bootup time to get the network configuration from the local network router. Type `ifconfig` to see the network configuration
          - DNS (Domain Name System): used to convert a hostname into an IP address. Type `dns` to see the content of the DNS table
       - TCP (Transmission Control Protocol)
-         - HTTP 1.0 (HyperText Transfer Protocol): used by the `http` command
+         - TLS 1.2 (for HTTPS connections): right now it only implements the TLS_DHE_RSA_WITH_AES_128_SHA cipher suite
+           - HTTP 1.0 (HyperText Transfer Protocol): used by the `http` command
 
 The networking stack relies on the PCI driver which scans the PCI bus (drivers/pci.c) as well as the Intel e1000 Ethernet adapter driver (drivers/e1000.c)

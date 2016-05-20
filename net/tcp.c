@@ -68,6 +68,11 @@ uint8 *TCP_send_packet(uint ipv4, uint16 sport, uint16 dport,
 					   uint8 flags,
 					   uint8 *options, uint16 options_length,
 					   uint8* payload, uint16 payload_size) {
+
+	// Remember the sequence and ack numbers
+	connection.sequence_nb = sequence_nb;
+	connection.ack_nb = ack_nb;
+
 	// Get an IPv4 packet
 	uint16 size = payload_size + TCP_HEADER_SIZE + options_length;
 	uint16 offset;
@@ -85,14 +90,12 @@ uint8 *TCP_send_packet(uint ipv4, uint16 sport, uint16 dport,
 	header->urgent = 0;
 	header->checksum = 0;
 
-	if (options_length > 0) {
-		for (int i=0; i<options_length; i++) {
-			buffer[offset + TCP_HEADER_SIZE + i] = options[i];
-		}
+	if (options_length > 0) memcpy(buffer + offset + TCP_HEADER_SIZE, options, options_length);
+	if (payload_size > 0) {
+		memcpy(buffer + offset + TCP_HEADER_SIZE + options_length, payload, payload_size);
+		connection.sequence_nb += payload_size;
 	}
-
-	if (payload_size > 0)
-		strncpy(buffer + offset + TCP_HEADER_SIZE + options_length, payload, payload_size);
+//		strncpy(buffer + offset + TCP_HEADER_SIZE + options_length, payload, payload_size);
 
 /*	uint8 options[12] = { 0x01, 0x01, 0x08, 0x0A, 0x37, 0x8D, 0xE5, 0xDB, 0xA8, 0xF4, 0x91, 0xC6 };
 	for (int i=0; i<12; i++) {
@@ -104,8 +107,25 @@ uint8 *TCP_send_packet(uint ipv4, uint16 sport, uint16 dport,
 	IPv4_send_packet(buffer, size + offset, offset);
 }
 
-void TCP_end_connection(uint ipv4) {
+void TCP_send(uint8 payload[], uint size) {
+	TCP_send_packet(connection.ipv4, connection.sport, connection.dport,
+					connection.sequence_nb, connection.ack_nb,
+					TCP_FLAGS_PUSH | TCP_FLAGS_ACK,
+					0, 0,
+					payload, size);
+}
 
+void TCP_cleanup_connection() {
+	TCPData *data = connection.data_first, *tmp;
+	while (data) {
+		if (data->content) kfree(data->content);
+		tmp = data;
+		data = data->next;
+		kfree(tmp);
+	}
+
+	connection.data_first = 0;
+	connection.data_last = 0;
 }
 
 void TCP_receive_packet(uint ipv4_from, uint8 *buffer, uint16 size) {
@@ -140,8 +160,11 @@ void TCP_receive_packet(uint ipv4_from, uint8 *buffer, uint16 size) {
 				}
 				return;
 
+			// Receive data
 			case TCP_STATUS_TRANSFER_PUSH:
+				// The server ends the connection
 				if (flags & TCP_FLAGS_FIN) {
+					connection.status = TCP_STATUS_FIN;
 					TCP_send_packet(ipv4_from, connection.sport, connection.dport,
 									switch_endian32(header->ack_nb), switch_endian32(header->sequence_nb) + 1,
 									TCP_FLAGS_ACK,
@@ -150,19 +173,27 @@ void TCP_receive_packet(uint ipv4_from, uint8 *buffer, uint16 size) {
 					return;
 				}
 
+				// We receive an actual payload
 				if (size > header_size) {
 					payload_size = size - header_size;
-					connection.data = kmalloc(payload_size + 1);
-					strncpy(connection.data, buffer + header_size, payload_size);
-					connection.data[payload_size] = 0;
-					connection.data_size = payload_size;
-					connection.status = TCP_STATUS_FIN;
+					TCPData *data = (TCPData*)kmalloc(sizeof(TCPData));
+					data->content = kmalloc(payload_size + 1);
+					memcpy(data->content, buffer + header_size, payload_size);
+					data->content[payload_size] = 0;
+					data->size = payload_size;
+					data->next = 0;
+					if (!connection.data_first) {
+						connection.data_first = data;
+					} else {
+						connection.data_last->next = data;
+					}
+					connection.data_last = data;
+					TCP_send_packet(ipv4_from, connection.sport, connection.dport,
+									switch_endian32(header->ack_nb), switch_endian32(header->sequence_nb) + payload_size,
+									TCP_FLAGS_ACK,
+									TCP_options, 12,
+									0, 0);
 				}
-				TCP_send_packet(ipv4_from, connection.sport, connection.dport,
-								switch_endian32(header->ack_nb), switch_endian32(header->sequence_nb) + 1,
-								TCP_FLAGS_ACK,
-								TCP_options, 12,
-								0, 0);
 				return;
 		}
 	}
@@ -173,12 +204,14 @@ void TCP_receive_packet(uint ipv4_from, uint8 *buffer, uint16 size) {
 
 TCPConnection *TCP_start_connection(uint ipv4, uint16 dport, uint8 *payload, uint16 payload_size) {
 
+	connection.ipv4 = ipv4;
 	connection.status = TCP_STATUS_HANDSHAKE_SYN;
 	connection.sport = 10000 + rand();
 	connection.dport = dport;
 	connection.payload = payload;
 	connection.payload_size = payload_size;
-	connection.data = 0;
+	connection.data_first = 0;
+	connection.data_last = 0;
 
 	TCP_send_packet(ipv4, connection.sport, connection.dport,
 					10, 0,

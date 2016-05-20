@@ -53,6 +53,7 @@ struct WindowAction {
 	void (*init) (Window *, const char *);
 	void (*cls) (Window *);
 	void (*puts) (Window *, const char *);
+	void (*nputs) (Window *, const char *, uint);
 	void (*putc) (Window *, char);
 	void (*puti) (Window *, uint);
 	void (*putnb) (Window *, int);

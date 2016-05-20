@@ -11,6 +11,7 @@
 #include "debug_line.h"
 
 extern uint get_ticks();
+extern uint8 TLS_debug;
 
 char *strcpy(char *dest, const char *src) {
     char *save = dest;
@@ -300,9 +301,9 @@ void debug_i(char *msg, uint nb) {
 }
 
 void _printf(Window *win, const char *format, va_list args) {
-    int x = 0;
+    int x = 0, y;
     char *str;
-    char tmp[3];
+    char tmp[3], ch;
     uint ip;
     uint8 *ip_ptr;
 
@@ -319,7 +320,26 @@ void _printf(Window *win, const char *format, va_list args) {
                     break;
                 case 's':
                     str = (char*)va_arg( args, int );
-                    win->action->puts(win, str);
+//                    win->action->puts(win, str);
+
+                    x = 0;
+                    y = 0;
+                    ch = str[y];
+                    while (ch != 0) {
+                        while (ch != 0 && ch != 0x0A) ch = str[++y];
+  
+                        if (ch == 0x0A) {
+                            win->action->nputs(win, str + x, y - x);
+
+                            x = ++y;
+//                            y = x;
+                            ch = str[y];
+                            win->action->putcr(win);
+                        } else {
+                            win->action->puts(win, str + x);
+                        }
+                    }
+//                    win->action->puts(win, str + x);
 /*                    draw_string(str, x, debug_pos);
                     x += strlen(str) * 8;*/
                     break;
@@ -376,7 +396,10 @@ void debug(char *msg) {
 //    current_process->win->action->puts(current_process->win, msg);
     draw_string(msg, 0, debug_pos);
     debug_pos += 8;
-    if (debug_pos >= 480) debug_pos = 0;
+    if (debug_pos >= 480) {
+        getch();
+        debug_pos = 0;
+    }
 }
 
 // Prints the stack trace. This is called by stack_dump() defined in
@@ -441,7 +464,7 @@ void C_stack_dump(void *esp, void *ebp) {
     }
 
 //    dump_mem(esp, 320, 14);
-//    for (;;);    
+    for (;;);
 }
 
 char ascii[256] = {

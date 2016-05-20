@@ -4,7 +4,37 @@
 #include "display.h"
 #include "kheap.h"
 
-void HTTP_get(Window *win, char *hostname) {
+void TLS_init(Window *win, uint ip, char *hostname, uint8 payload[]);
+
+void HTTP_TCP(Window *win, uint ip, char *hostname, uint8 payload[]) {
+	TCPConnection *connection = TCP_start_connection(ip, TCP_PORT_HTTP, payload, strlen(payload));
+
+	// It's an HTTP 1.0 request - the server sends the response and closes the TCP connection
+	// We're just waiting until the connection is closed to look at the result
+	for (int i=0; i<2000000000; i++) {
+		if (connection->status == TCP_STATUS_FIN) {
+			if (connection->data_first) {
+				uint16 idx = 0, idx_start = 0;
+
+				while (idx < connection->data_first->size) {
+					idx_start = idx;
+					while (connection->data_first->content[idx] != 0x0A && idx < connection->data_first->size) idx++;
+
+					connection->data_first->content[idx] = 0;
+					printf_win(win, "%s\n", connection->data_first + idx_start);
+					idx++;
+				}
+			}
+			else
+				printf_win(win, "No data");
+			return;
+		}
+	}
+
+	TCP_cleanup_connection();
+}
+
+void _HTTP_get(Window *win, char *hostname, uint8 secure) {
 	uint ip = DNS_query(hostname);
 
 	if (ip == 0) {
@@ -12,31 +42,28 @@ void HTTP_get(Window *win, char *hostname) {
 		return;
 	}
 
-	printf_win(win, "Establishing HTTP connection to %s (%i)...\n", hostname, ip);
+	if (secure)
+		printf_win(win, "Establishing HTTPS connection to %s (%i)...\n\n", hostname, ip);
+	else
+		printf_win(win, "Establishing HTTP connection to %s (%i)...\n\n", hostname, ip);
 
-	char payload[7] = "GET /\n";
+	char *payload = (char*)kmalloc(23 + strlen(hostname) + 1);
+	strcpy(payload, "GET / HTTP/1.0\nHost: ");
+	strcpy(payload+ 21, hostname);
+	payload[21 + strlen(hostname)] = '\n';
+	payload[22 + strlen(hostname)] = '\n';
+	payload[23 + strlen(hostname)] = 0;
 
-	TCPConnection *connection = TCP_start_connection(ip, TCP_PORT_HTTP, (uint8*)&payload, strlen(payload));
+	if (secure) TLS_init(win, ip, hostname, payload);
+	else HTTP_TCP(win, ip, hostname, payload);
 
-	for (int i=0; i<2000000000; i++) {
-		if (connection->status == TCP_STATUS_FIN) {
-			if (connection->data) {
-				uint16 idx = 0, idx_start = 0;
+	kfree(payload);
+}
 
-				while (idx < connection->data_size) {
-					idx_start = idx;
-					while (connection->data[idx] != 0x0A && idx < connection->data_size) idx++;
+void HTTP_get(Window *win, char *hostname) {
+	_HTTP_get(win, hostname, 0);
+}
 
-					connection->data[idx] = 0;
-					printf_win(win, "%s\n", connection->data + idx_start);
-					idx++;
-				}
-
-				kfree(connection->data);
-			}
-			else
-				printf_win(win, "No data");
-			return;
-		}
-	}	
+void HTTPS_get(Window *win, char *hostname) {
+	_HTTP_get(win, hostname, 1);
 }

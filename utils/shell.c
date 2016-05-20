@@ -509,9 +509,23 @@ void shell_http(Window *win, ShellEnv *env, Token *tokens, uint length) {
 	HTTP_get(win, tokens->value);
 }
 
+void shell_https(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length == 0) {
+		printf_win(win, "Please pass a hostname\n");
+		return;
+	}
+
+	if (tokens->code != PARSE_WORD) {
+		printf_win(win, "Invalid hostname\n");
+		return;
+	}
+
+	HTTPS_get(win, tokens->value);
+}
+
 ////////////////////////////////////////////////////////////////////////
 
-#define NB_CMDS	24
+#define NB_CMDS	25
 
 ShellCmd commands[NB_CMDS] = {
 	{ .name = "help",		.function = shell_help,			.description = "This help\n" },
@@ -527,6 +541,8 @@ ShellCmd commands[NB_CMDS] = {
 	{ .name = "edit",		.function = shell_edit,			.description = "edit <filename>: file editor\n" },
 	{ .name = "fonts",		.function = shell_fonts,		.description = "Tests the system proportional fonts (press Enter to exit)\n" },
 	{ .name = "heap",		.function = shell_heap,			.description = "A detailed information of current heap allocations\n" },
+	{ .name = "http",		.function = shell_http,			.description = "Sends an HTTP GET request\n" },
+	{ .name = "https",		.function = shell_https,		.description = "Sends an HTTPS GET request (using TLS 1.2)\n" },
 	{ .name = "ifconfig",	.function = shell_ifconfig,		.description = "Prints the network configuration\n" },
 	{ .name = "ls",			.function = shell_ls,			.description = "Displays the files in the current directory\n" },
 	{ .name = "load",		.function = shell_load,			.description = "load <filename>: loads a file into memory\n" },
@@ -537,7 +553,6 @@ ShellCmd commands[NB_CMDS] = {
 	{ .name = "run",		.function = shell_run,			.description = "run <filename>: runs an ELF executable\n" },
 	{ .name = "redraw",		.function = shell_redraw,		.description = "Redraws the current window\n" },
 	{ .name = "stack",		.function = shell_stack,		.description = "Prints the current stack trace\n" },
-	{ .name = "http",		.function = shell_http,			.description = "Sends an HTTP GET request\n" },
 };
 
 void shell_help(Window *win, ShellEnv *env, Token *tokens, uint length) {

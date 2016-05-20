@@ -28,7 +28,7 @@ typedef struct __attribute__((packed)) {
 
 typedef struct {
 	uint8 *hostname;
-	uint16 alias;
+	uint8 *alias;
 } DNSAlias;
 
 typedef struct {
@@ -53,26 +53,28 @@ int DNS_get_entry(char *hostname) {
 	return -1;
 }
 
-void DNS_add_entry(char *hostname, uint ipv4) {
-	int idx = DNS_get_entry(hostname);
-
-	if (idx >= 0) {
-		DNS_table[idx].ipv4 = ipv4;
-		return;
-	}
+void DNS_add_entry(uint8 *buffer, char *hostname, uint ipv4) {
+	int idx = 0;
 
 	strcpy(DNS_table[nb_DNS_entries].hostname, hostname+1);
 
-	char c = hostname[0];
-	idx = c;
-	c = DNS_table[nb_DNS_entries].hostname[idx];
+	uint8 c = *hostname++;
 
 	while (c) {
-		DNS_table[nb_DNS_entries].hostname[idx] = '.';
-		idx += c + 1;
-		c = DNS_table[nb_DNS_entries].hostname[idx];
+		if (c == 0xC0) {
+			hostname = buffer + *hostname;
+			c = *hostname++;
+		}
+
+		strncpy(DNS_table[nb_DNS_entries].hostname + idx, hostname, c);
+		idx += c;
+		DNS_table[nb_DNS_entries].hostname[idx++] = '.';
+
+		hostname += c;
+		c = *hostname++;
 	}
 
+	DNS_table[nb_DNS_entries].hostname[idx - 1] = 0;
 	DNS_table[nb_DNS_entries].ipv4 = ipv4;
 
 //	printf("DNS: %s -> %i\n", DNS_table[nb_DNS_entries].hostname, DNS_table[nb_DNS_entries].ipv4);
@@ -130,6 +132,7 @@ void DNS_receive_packet(uint8* buffer, uint16 size) {
 	char c;
 	uint idx = sizeof(DNSHeader);
 	uint *ipv4;
+	uint8 *hostname;
 
 //	printf("%d questions, %d answers\n", questions, answers);
 
@@ -149,21 +152,32 @@ void DNS_receive_packet(uint8* buffer, uint16 size) {
 	for (int i=0; i<answers; i++) {
 		answer = (DNSAnswer*)(buffer +idx);
 
+		// Domain name alias => Store in the alias table
 		if (answer->type == DNS_TYPE_ALIAS) {
-			uint16 *a = (uint16*)(buffer + idx + sizeof(DNSAnswer));
-//			printf("Alias %s => %x\n", buffer + (answer->//name >> 8), *a);
 			aliases[nb_aliases].hostname = buffer + (answer->name >> 8);
-			aliases[nb_aliases++].alias = *a;
-		}
-		else if (answer->type == DNS_TYPE_HOST_ADDRESS) {
-			ipv4 = (uint*)(buffer + idx + sizeof(DNSAnswer));
-//			printf("Adding %s => %i\n", buffer + ((answer->name & 0xFF00) >> 8), *ipv4);
-			DNS_add_entry(buffer + (answer->name >> 8), *ipv4);
+			if (buffer[idx + sizeof(DNSAnswer)] == 0xC0)
+				aliases[nb_aliases].alias = buffer + buffer[idx + sizeof(DNSAnswer) + 1];
+			else
+				aliases[nb_aliases].alias = buffer + idx + sizeof(DNSAnswer);
 
 			for (int j=0; j<nb_aliases; j++) {
-				if (answer->name == aliases[j].alias) {
+				if (aliases[j].alias == aliases[nb_aliases].hostname)
+					aliases[j].alias = aliases[nb_aliases].alias;
+			}
+
+			nb_aliases++;
+		}
+		// Domain name with an address
+		else if (answer->type == DNS_TYPE_HOST_ADDRESS) {
+			hostname = buffer + ((answer->name & 0xFF00) >> 8);
+			ipv4 = (uint*)(buffer + idx + sizeof(DNSAnswer));
+//			printf("Adding %s => %i\n", hostname, *ipv4);
+			DNS_add_entry(buffer, hostname, *ipv4);
+
+			for (int j=0; j<nb_aliases; j++) {
+				if (hostname == aliases[j].alias) {
 //					printf("Adding %s => %i\n", aliases[j].hostname, *ipv4);
-					DNS_add_entry(aliases[j].hostname, *ipv4);
+					DNS_add_entry(buffer, aliases[j].hostname, *ipv4);
 				}
 			}
 		}
