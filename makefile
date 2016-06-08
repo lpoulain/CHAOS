@@ -1,7 +1,10 @@
 SDIR = kernel lib drivers utils fs net
 C_SOURCES = $(wildcard kernel/*.c lib/*.c drivers/*.c utils/*.c gui/*.c fs/*.c net/*.c lib/crypto/*.c)
+CC_SOURCES = $(wildcard net/tls/*.cc) lib/cpp.cc
 HEADERS = $(wildcard kernel/*.h lib/*.h drivers/*.h utils/*.h gui/*.h fs/*.h net/*.h lib/crypto/*.h)
-OBJ = ${C_SOURCES:.c=.o}
+CC_HEADERS = net/tls/*.hh ${HEADERS}
+CC_OBJ = ${CC_SOURCES:.cc=.o}
+OBJ = ${C_SOURCES:.c=.o} ${CC_OBJ}
 INCLUDE= -I ./kernel -I ./lib -I ./drivers -I ./utils -I ./gui -I ./fs -I ./net -I ./lib/crypto
 
 All: chaos.img
@@ -19,6 +22,21 @@ bin:	boot.bin kernel.bin
 
 boot.bin:	boot/boot.asm boot/bios.asm boot/pm_gdt.asm boot/pm_start.asm boot/pm_io.asm
 	nasm -f bin -o boot.bin boot/boot.asm
+
+lib/cpp.o : lib/cpp.cc ${CC_HEADERS}
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
+
+net/tls/tls.o : net/tls/tls.cc ${CC_HEADERS}
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
+
+net/tls/largeint.o : net/tls/largeint.cc ${CC_HEADERS}
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
+
+net/tls/asn1.o : net/tls/asn1.cc ${CC_HEADERS}
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
+
+net/tls/key_exchange.o : net/tls/key_exchange.cc ${CC_HEADERS}
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
 
 %.o : %.c ${HEADERS}
 	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@
@@ -68,4 +86,5 @@ clean:
 	rm -rf utils/*.o
 	rm -rf fs/*.o
 	rm -rf net/*.o
+	rm -rf net/tls/*.o
 	rm -rf lib/crypto/*.o

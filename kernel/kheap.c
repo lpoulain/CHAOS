@@ -30,6 +30,10 @@ void kheap_print(Window *win) {
 	heap_print(win, &kheap);
 }
 
-void kheap_check_for_corruption() {
-	heap_check_for_corruption(&kheap);
+uint kheap_free_space() {
+	return heap_free_space(&kheap);
+}
+
+void kheap_check_for_corruption(const char *msg) {
+	heap_check_for_corruption(&kheap, msg);
 }

@@ -7,6 +7,7 @@ typedef unsigned short uint16;
 typedef          short sint16;
 typedef unsigned char  uint8;
 typedef          char  sint8;
+typedef unsigned long long uint64;
 
 char *strcpy(char *dest, const char *src);
 char *strncpy(char *dest, const char *src, int n);

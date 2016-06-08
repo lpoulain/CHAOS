@@ -20,9 +20,10 @@ void *heap_alloc(uint, Heap *);
 void *heap_alloc_pages(uint, const char *, Heap *);
 void heap_free(void *, Heap *);
 void heap_print(Window *, Heap *);
+uint heap_free_space(Heap *h);
 void *malloc(uint);
 void free(void*);
 
-void heap_check_for_corruption(Heap *h);
+void heap_check_for_corruption(Heap *h, const char *msg);
 
 #endif // KHEAP_H

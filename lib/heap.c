@@ -87,14 +87,14 @@ void check_heap_entry(HeapHeader *header) {
     }
 }
 
-void heap_check_for_corruption(Heap *h) {
+void heap_check_for_corruption(Heap *h, const char *msg) {
     HeapHeader *header = (HeapHeader*)h->start;
     while (header >= (HeapHeader*)h->start && header < (HeapHeader*)h->end) {
         check_heap_entry(header);
         header = (HeapHeader*)((uint)header + header->size + sizeof(HeapHeader) + sizeof(HeapFooter));
     }
     if ((uint)header != h->end) {
-        printf("Error: last entry corrupted\n");
+        printf("Error: last entry corrupted [%s]\n", msg);
         stack_dump();
         for (;;);
     }
@@ -143,6 +143,8 @@ void init_heap(Heap *h, uint start, uint pages, uint end) {
     idx->active = 1;
 }
 
+int flag_alloc;
+
 void *heap_alloc(uint nb_bytes, Heap *h) {
     HeapHeader *header = (HeapHeader*)h->start;
     HeapFooter *footer = (HeapFooter*)(h->start + sizeof(HeapHeader) + header->size);
@@ -182,7 +184,11 @@ void *heap_alloc(uint nb_bytes, Heap *h) {
 
     // Out of memory
     if (candidate_size == NO_MORE_SPACE) {
-        printf("No more space\n");
+        printf("No more space (%d bytes requested)\n", nb_bytes);
+        printf("%d free\n", heap_free_space(h));
+
+        heap_check_for_corruption(h, "no more space");
+
         stack_dump();
 //        heap_print(&gui_debug_win, h);
 
@@ -429,6 +435,12 @@ void heap_free(void *ptr, Heap *h) {
 
     // Somewhere else - do nothing
     printf("Error, trying to free %x outside of the heap range\n", pointer);
+}
+
+uint heap_free_space(Heap *h) {
+    HeapFooter *footer = (HeapFooter*)(h->end - sizeof(HeapFooter));
+    HeapHeader *header = footer->header;
+    return header->size;
 }
 
 void *malloc(uint nb_bytes) {

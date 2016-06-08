@@ -520,7 +520,8 @@ void shell_https(Window *win, ShellEnv *env, Token *tokens, uint length) {
 		return;
 	}
 
-	HTTPS_get(win, tokens->value);
+//	HTTPS_get(win, tokens->value);
+	HTTPS_get(win, "www.wikipedia.org");
 }
 
 ////////////////////////////////////////////////////////////////////////
