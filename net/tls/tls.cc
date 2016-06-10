@@ -399,28 +399,32 @@ public:
 			this->client_random.value[i] = rand() % 256;
 		}
 
-		this->client_hello[45] = 0x02;	// 1 supported cipher suite
-		this->client_hello[47] = 0x33;	// supported cipher suite: TLS_DHE_RSA_WITH_AES_128_CBC_SHA
-		this->client_hello[47] = 0x2F;	// supported cipher suite: TLS_RSA_WITH_AES_128_CBC_SHA
-		this->client_hello[48] = 0x01;	// 1 compression method (null)
+		offset = 39;
+		uint16 *tmp16 = (uint16*)(this->client_hello + 5 + offset);
+		*tmp16++ = 0x0400;				// 1 supported cipher suite
+		*tmp16++ = TLS_RSA_WITH_AES_128_CBC_SHA;
+		*tmp16++ = TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
+		*tmp16++ = 0x0001;				// 1 compression method (null)
+		offset += 8;
 
 		// TLS Extensions
-		uint16 *tmp16 = (uint16*)(this->client_hello + 50);
-		*tmp16++ = switch_endian16(512 - 47);	// Extensions length
+//		tmp16 = (uint16*)(this->client_hello + 50);
+		*tmp16++ = switch_endian16(512 - offset - 2);	// Extensions length
 		*tmp16++ = 0x01FF;						// renegotiation_info
 		*tmp16++ = 0x0100;						// length=1
+		offset += 7;
 
 		// server_name extension
-		tmp16 = (uint16*)(this->client_hello + 59);
+		tmp16 = (uint16*)(this->client_hello + 5 + offset + 2);
 		*tmp16++ = switch_endian16(hostname_length + 5);	// length
 		*tmp16++ = switch_endian16(hostname_length + 3);	// length (again)
-		tmp16 = (uint16*)(this->client_hello + 64);
-		*tmp16 = switch_endian16(hostname_length);		// actual length
-		strncpy((char*)this->client_hello + 66, hostname, hostname_length);	// hostname
+		tmp16 = (uint16*)(this->client_hello + 5 + offset + 7);
+		*tmp16 = switch_endian16(hostname_length);			// actual length
+		strncpy((char*)this->client_hello + 5 + offset + 9, hostname, hostname_length);	// hostname
+		offset += hostname_length + 9;
 
 		// signature_algorithms extension
-		offset = 66 + hostname_length;
-		tmp16 = (uint16*)(this->client_hello + offset);
+		tmp16 = (uint16*)(this->client_hello + 5 + offset);
 		*tmp16++ = 0x0D00;	// signature_algorithms
 		*tmp16++ = 0x1200;	// length=18
 		*tmp16++ = 0x1000;	// signature hash algo length=16
@@ -433,6 +437,8 @@ public:
 		*tmp16++ = 0x0102;	// SHA1 + RSA
 		*tmp16++ = 0x0302;	// SHA1 + ECDSA
 		offset += 22;
+/*
+		// We don't need those extentions until we implement the ECDHE key exchange
 
 		// ec_point_formats extension
 		*tmp16++ = 0x0B00;	// ec_point_formats
@@ -447,10 +453,10 @@ public:
 		*tmp16++ = 0x1700;	// secp256r1
 		*tmp16++ = 0x1800;	// secp384r1
 		offset += 10;
-
+*/
 		// padding extension
 		*tmp16++ = 0x1500;	// padding
-		*tmp16++ = switch_endian16(512 - offset + 1);	// length
+		*tmp16++ = switch_endian16(512 - offset - 4);	// length
 
 		// We will need to copy the complete handshake in a single allocation
 		// to compute the MAC. We thus need to compute its size
