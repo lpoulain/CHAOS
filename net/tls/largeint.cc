@@ -143,6 +143,31 @@ void LargeInt::operator-=(LargeInt &b) {
 	}
 }
 
+void LargeInt::operator>>=(int nb) {
+	if (nb <= 0) return;
+
+	int nb_words = nb/32, high_word=this->size-1;
+
+	if (nb_words > 0) {
+		for (int i=0; i<this->size-nb_words; i++)
+			this->data[i] = this->data[i+nb_words];
+		for (int i=this->size-nb_words; i<this->size; i++)
+			this->data[i] = 0;
+		nb = nb % 32;
+		high_word -= nb_words;
+	}
+
+	uint carry = 0, old_carry = 0;
+	uint mask1 = 0xFFFFFFFF >> (32-nb);
+	
+	for (int i=high_word; i>=0; i--) {
+		carry = (this->data[i] & mask1) << (32 - nb);
+		this->data[i] >>= nb;
+		this->data[i] |= old_carry;
+		old_carry = carry;
+	}
+}
+
 void LargeInt::shift_right() {
 	int carry = 0, old_carry=0;
 	for (int i=this->size-1; i>=0; i--) {
@@ -189,25 +214,43 @@ void LargeInt::modulo(LargeInt &mod) {
 
 	LargeInt mod_large(this->size);
 
-	for (int i=0; i<mod.size; i++) {
-		mod_large.data[this->size-mod.size+i] = mod.data[i];
-	}
-
 	int bit_shift = 0;
+
+	int this_top_word=this->size-1;
+	while (this->data[this_top_word] == 0 && this_top_word > 0) this_top_word--;
+	int mod_top_word=mod.size-1;
+	while (mod.data[mod_top_word] == 0 && mod_top_word > 0) mod_top_word--;
+
+	for (int i=0; i<=mod_top_word; i++) {
+			mod_large.data[this_top_word-mod_top_word+i] = mod.data[i];
+	}
+	bit_shift += 32*(this_top_word-mod_top_word);
+
 	uint a_top_empty_bits = this->nb_top_empty_bits();
 	uint mod_top_empty_bits = mod_large.nb_top_empty_bits();
+	uint diff_bits;
+
+//		printf("MODULO %d %d\n", this_top_word, mod_top_word);
+//		this->print();
+//		mod_large.print();
 
 	while (mod_top_empty_bits > a_top_empty_bits) {
 		mod_large.shift_left();
 		mod_top_empty_bits--;
 		bit_shift++;
 	}
-//		printf("Ready %d\n", bit_shift);
-	for (int i=0; i<(this->size-mod.size)*32+bit_shift+1; i++) {
-		while (*this >= mod_large) {
+
+	while (bit_shift >= 0) {
+		if (this->cmp(&mod_large) >= 0) {
 			*this -= mod_large;
 		}
-		mod_large.shift_right();
+		a_top_empty_bits = this->nb_top_empty_bits();
+		mod_top_empty_bits = mod_large.nb_top_empty_bits();
+		diff_bits = a_top_empty_bits - mod_top_empty_bits;
+		if (diff_bits == 0) diff_bits = 1;
+//			printf(">> %d (%d %d)\n", diff_bits, a_top_empty_bits, mod_top_empty_bits);
+		bit_shift -= diff_bits;
+		mod_large >>= diff_bits;
 	}
 }
 

@@ -46,6 +46,7 @@ public:
 	void operator-=(LargeInt &b);
 	void shift_right();
 	void shift_left();
+	void operator>>=(int);
 	uint nb_top_empty_bits();
 	void modulo(LargeInt &mod);
 	void mod_mul(LargeInt *b, LargeInt *mod);

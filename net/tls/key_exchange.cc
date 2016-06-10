@@ -127,18 +127,19 @@ uint8 *RSA_KeyExchange::get_client_key_exchange() {
 	nb.value[0] = 0x00;
 	nb.value[1] = 0x02;
 	for (int i=2; i<256-49; i++) nb.value[i] = 0x42;
-	nb.value[256-48] = 0;
+	nb.value[256-49] = 0;
 
 	LargeInt premaster_secret_Int(&nb), RSA_e_int(this->RSA_e), RSA_n_int(this->RSA_n);
 	LargeInt *encrypted_premaster_secret = LargeInt::mod_exp(&premaster_secret_Int, &RSA_e_int, &RSA_n_int);
 
-	uint8 *message = (uint8*)kmalloc(6 + this->RSA_n->size);
-	message[0] = 0x01;
-	message[1] = 0x00;
-	message[2] = 0x01;
-	message[3] = 0x02;
-	message[4] = 0x01;
-	message[5] = 0x06;
+	uint8 *client_key_exchange = (uint8*)kmalloc(11 + this->RSA_n->size);
 
-	return message;
+	uint16 *tmp16 = (uint16*)(client_key_exchange + 9);
+	*tmp16 = switch_endian16(this->RSA_n->size);
+	uint *tmp = (uint*)(client_key_exchange + 11);
+	for (int i=0; i<64; i++) {
+		tmp[i] = switch_endian32(encrypted_premaster_secret->data[63-i]);
+	}
+
+	return client_key_exchange;
 }

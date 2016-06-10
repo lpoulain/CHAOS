@@ -511,7 +511,8 @@ void shell_http(Window *win, ShellEnv *env, Token *tokens, uint length) {
 
 void shell_https(Window *win, ShellEnv *env, Token *tokens, uint length) {
 	if (length == 0) {
-		printf_win(win, "Please pass a hostname\n");
+		HTTPS_get(win, "www.wikipedia.org");
+//		printf_win(win, "Please pass a hostname\n");
 		return;
 	}
 
@@ -520,8 +521,8 @@ void shell_https(Window *win, ShellEnv *env, Token *tokens, uint length) {
 		return;
 	}
 
-//	HTTPS_get(win, tokens->value);
-	HTTPS_get(win, "www.wikipedia.org");
+//  TTPS_get(win, tokens->value);
+	HTTPS_get(win, "www.google.com");
 }
 
 ////////////////////////////////////////////////////////////////////////

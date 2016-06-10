@@ -20,6 +20,8 @@ extern "C" {
 #define TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE	0x10
 #define TLS_HANDSHAKE_SERVER_HELLO_DONE		0x0E
 
+#define TLS_DHE_RSA_WITH_AES_128_CBC_SHA	0x3300
+#define TLS_RSA_WITH_AES_128_CBC_SHA 		0x2F00
 
 typedef struct __attribute__((packed)) {
 	uint8 content_type;
@@ -235,7 +237,7 @@ public:
 	TLS(Window *win, uint ip, char *hostname, uint8 payload[]) {
 		this->send_client_hello(ip, hostname);
 		printf_win(win, ".");
-		this->receive_server_hello();
+		if (this->receive_server_hello(win) < 0) return;
 		printf_win(win, ".");
 		this->compute_secret_keys();
 		printf_win(win, ".");
@@ -311,7 +313,7 @@ public:
 
 	void handle_alert(Window *win, TLSCursor *cursor) {
 		uint8 *alert_code = TLSCursor_next(cursor, 1);
-		printf_win(win, "Alert %d: ", *alert_code);
+		printf_win(win, "\nAlert %d: ", *alert_code);
 
 		switch(*alert_code) {
 		case 0:
@@ -374,49 +376,91 @@ public:
 	}
 
 	void send_client_hello(uint ip, char *hostname) {
-		this->client_hello = (uint8*)kmalloc(50);
-		
-		memset(this->client_hello, 0, 50);
-		this->client_hello[45] = 0x02;	// 1 supported cipher suite
-		this->client_hello[47] = 0x33;	// supported cipher suite: TLS_DHE_RSA_WITH_AES_128_CBC_SHA
-		this->client_hello[48] = 0x01;	// no compression
+		uint16 hostname_length = (uint16)strlen(hostname), offset;
+		this->client_hello = (uint8*)kmalloc(517);
+		memset(this->client_hello, 0, 517);
 
-/*		[50] = {
-			0, 0, 0, 0, 0,		// TLS Record header
-			0, 0, 0, 0, 0, 0,	// TLS Handshake header
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,		// random data
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,		// random data
-			0,				// session ID length
-			0x00, 0x02,		// number of cipher suites supported
-			0x00, 0x33,		// supported cipher suite: TLS_DHE_RSA_WITH_AES_128_CBC_SHA
-			0x01, 0x00 		// no compression
-		};*/
-		
+		// TLS Record header
+		TLSRecord *record = (TLSRecord*)this->client_hello;
+		record->content_type = TLS_HANDSHAKE;
+		record->version = TLS_VERSION;
+		record->length = switch_endian16(512);
+
+		// TLS Handshake header
+		TLSHandshake *handshake = (TLSHandshake*)(this->client_hello + sizeof(TLSRecord));
+		handshake->handshake_type = TLS_HANDSHAKE_CLIENT_HELLO;
+		handshake->length = switch_endian16(508);
+		handshake->version = TLS_VERSION;
+
+		// Client random data
 		this->client_random.init(32, this->client_hello + 11);
 
 		for (int i=0; i<32; i++) {
 			this->client_random.value[i] = rand() % 256;
 		}
 
-		TLSRecord *record = (TLSRecord*)this->client_hello;
-		record->content_type = TLS_HANDSHAKE;
-		record->version = TLS_VERSION;
-		record->length = switch_endian16(45);
+		this->client_hello[45] = 0x02;	// 1 supported cipher suite
+		this->client_hello[47] = 0x33;	// supported cipher suite: TLS_DHE_RSA_WITH_AES_128_CBC_SHA
+		this->client_hello[47] = 0x2F;	// supported cipher suite: TLS_RSA_WITH_AES_128_CBC_SHA
+		this->client_hello[48] = 0x01;	// 1 compression method (null)
 
-		TLSHandshake *handshake = (TLSHandshake*)(this->client_hello + sizeof(TLSRecord));
-		handshake->handshake_type = TLS_HANDSHAKE_CLIENT_HELLO;
-		handshake->length = switch_endian16(41);
-		handshake->version = TLS_VERSION;
+		// TLS Extensions
+		uint16 *tmp16 = (uint16*)(this->client_hello + 50);
+		*tmp16++ = switch_endian16(512 - 47);	// Extensions length
+		*tmp16++ = 0x01FF;						// renegotiation_info
+		*tmp16++ = 0x0100;						// length=1
+
+		// server_name extension
+		tmp16 = (uint16*)(this->client_hello + 59);
+		*tmp16++ = switch_endian16(hostname_length + 5);	// length
+		*tmp16++ = switch_endian16(hostname_length + 3);	// length (again)
+		tmp16 = (uint16*)(this->client_hello + 64);
+		*tmp16 = switch_endian16(hostname_length);		// actual length
+		strncpy((char*)this->client_hello + 66, hostname, hostname_length);	// hostname
+
+		// signature_algorithms extension
+		offset = 66 + hostname_length;
+		tmp16 = (uint16*)(this->client_hello + offset);
+		*tmp16++ = 0x0D00;	// signature_algorithms
+		*tmp16++ = 0x1200;	// length=18
+		*tmp16++ = 0x1000;	// signature hash algo length=16
+		*tmp16++ = 0x0106;	// SHA512 + RSA
+		*tmp16++ = 0x0306;	// SHA512 + ECDSA
+		*tmp16++ = 0x0105;	// SHA384 + RSA
+		*tmp16++ = 0x0305;	// SHA384 + ECDSA
+		*tmp16++ = 0x0104;	// SHA256 + RSA
+		*tmp16++ = 0x0304;	// SHA256 + ECDSA
+		*tmp16++ = 0x0102;	// SHA1 + RSA
+		*tmp16++ = 0x0302;	// SHA1 + ECDSA
+		offset += 22;
+
+		// ec_point_formats extension
+		*tmp16++ = 0x0B00;	// ec_point_formats
+		*tmp16++ = 0x0200;	// length=2
+		*tmp16++ = 0x0001;	// EC point formats length=1 (uncompressed)
+		offset += 6;
+
+		// elliptic curves extension
+		*tmp16++ = 0x0A00;	// elliptic_curves
+		*tmp16++ = 0x0600;	// length=6
+		*tmp16++ = 0x0400;	// elliptic curves length=4
+		*tmp16++ = 0x1700;	// secp256r1
+		*tmp16++ = 0x1800;	// secp384r1
+		offset += 10;
+
+		// padding extension
+		*tmp16++ = 0x1500;	// padding
+		*tmp16++ = switch_endian16(512 - offset + 1);	// length
 
 		// We will need to copy the complete handshake in a single allocation
 		// to compute the MAC. We thus need to compute its size
 		// We first add the Client Hello message size
-		this->handshake_size = 45;
+		this->handshake_size = 512;
 
-		this->connection = TCP_start_connection(ip, TCP_PORT_HTTPS, this->client_hello, 50);
+		this->connection = TCP_start_connection(ip, TCP_PORT_HTTPS, this->client_hello, 517);
 	}
 
-	void receive_server_hello() {
+	int receive_server_hello(Window *win) {
 		TLSCursor_init(&this->cursor, this->connection);
 		uint8 keep_downloading = 1;
 		uint16 size;
@@ -445,8 +489,8 @@ public:
 		this->handshake_buffer = (uint8*)kmalloc(this->handshake_size);
 	//	printf("Allocating %d bytes\n", handshake_size);
 	//	printf("Handshake: %x->%x\n", handshake_buffer, handshake_buffer+handshake_size);
-		memcpy(this->handshake_buffer, this->client_hello + 5, 45);
-		this->handshake_size = 45;
+		memcpy(this->handshake_buffer, this->client_hello + 5, 512);
+		this->handshake_size = 512;
 
 		// Second pass: we go through to copy
 
@@ -491,12 +535,28 @@ public:
 
 		// Call the key exchange (not hard-coded to DHE-RSA)
 		// This will decrypt the Diffie-Hellman parameters
-		this->key_exchange = new DHE_KeyExchange(this->server_key_exchange);
+		uint16 *cipher_suite = (uint16*)(this->server_hello + 39 + (this->server_hello[38]));
+
+		switch(*cipher_suite) {
+			case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
+				printf_win(win, "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
+				this->key_exchange = new DHE_KeyExchange(this->server_key_exchange);
+				break;
+			case TLS_RSA_WITH_AES_128_CBC_SHA:
+				printf_win(win, "TLS_RSA_WITH_AES_128_CBC_SHA");
+				this->key_exchange = new RSA_KeyExchange(this->server_certificate);
+				break;
+			default:
+				uint8 *tmp = (uint8*)cipher_suite;
+				printf_win(win, "Unknown cipher suite: %X%X\n", tmp[0], tmp[1]);
+				return -1;
+		}
 
 		// We get the key size used for
 		// - premaster_secret size
 		// - size of the 
 		this->key_size = this->key_exchange->get_key_size();
+		return 0;
 	}
 
 	void compute_secret_keys() {
