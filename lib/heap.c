@@ -373,7 +373,9 @@ void heap_print(Window *win, Heap *h) {
 
         header = (HeapHeader*)((uint)header + header->size + sizeof(HeapHeader) + sizeof(HeapFooter));
     }
+}
 
+void heap_print_pages(Window *win, Heap *h) {
     printf_win(win, "Page blocks (%x -> %x):\n", h->page_start, h->page_end);
     HeapPageIndex *idx = (HeapPageIndex*)h->page_index_start;
     uint start, end;
@@ -391,31 +393,6 @@ void heap_print(Window *win, Heap *h) {
         idx ++;
     }
 }
-
-// Kernel memory allocation
-/*
-uint kmalloc(uint size, uint *phys_addr) {
-    uint tmp = next_memory_block;
-    next_memory_block += size;
-
-    if (phys_addr) *phys_addr = tmp;
-
-    return tmp;
-}
-
-// Kernel memory allocation, page-aligned
-uint kmalloc_a(uint size, uint *phys_addr) {
-    if (next_memory_block & 0xFFF) {
-        next_memory_block &= 0xFFFFF000;
-        next_memory_block += 0x1000;
-    }
-    uint allocated = next_memory_block;
-    next_memory_block += size;
-
-    if (phys_addr) *phys_addr = allocated;
-    return allocated;
-}
-*/
 
 void heap_free(void *ptr, Heap *h) {
     uint pointer = (uint)ptr;

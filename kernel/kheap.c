@@ -30,6 +30,10 @@ void kheap_print(Window *win) {
 	heap_print(win, &kheap);
 }
 
+void kheap_print_pages(Window *win) {
+	heap_print_pages(win, &kheap);
+}
+
 uint kheap_free_space() {
 	return heap_free_space(&kheap);
 }

@@ -20,6 +20,7 @@ void *heap_alloc(uint, Heap *);
 void *heap_alloc_pages(uint, const char *, Heap *);
 void heap_free(void *, Heap *);
 void heap_print(Window *, Heap *);
+void heap_print_pages(Window *, Heap *);
 uint heap_free_space(Heap *h);
 void *malloc(uint);
 void free(void*);

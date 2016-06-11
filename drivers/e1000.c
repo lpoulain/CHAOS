@@ -36,8 +36,8 @@ typedef struct __attribute__ ((__packed__))
   uint16 type;             /* packet type ID field */
 } EthernetPacket;
 
-#define NUM_RX_DESC 32
-#define NUM_TX_DESC 32
+#define NUM_RX_DESC 16
+#define NUM_TX_DESC 16
 
 #define REG_CTRL        0x0000
 #define REG_STATUS      0x0008
