@@ -459,6 +459,7 @@ static void page_fault(registers_t regs)
     if (reserved) {printf("reserved ");}
     printf(") at [%x] \n", faulting_address);
 
+//for (;;);
     stack_dump();
 //    C_stack_dump((void*)regs.esp, (void*)regs.ebp);
 //    for (;;);

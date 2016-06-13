@@ -421,7 +421,7 @@ uint heap_free_space(Heap *h) {
 }
 
 void *malloc(uint nb_bytes) {
-    heap_alloc(nb_bytes, default_heap);
+    return heap_alloc(nb_bytes, default_heap);
 }
 
 void free(void *ptr) {

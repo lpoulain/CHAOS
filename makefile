@@ -36,7 +36,7 @@ net/tls/asn1.o : net/tls/asn1.cc ${CC_HEADERS}
 	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
 
 net/tls/key_exchange.o : net/tls/key_exchange.cc ${CC_HEADERS}
-	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
+	/usr/local/bin/i686-elf-g++ -m32 -ffreestanding $(INCLUDE) -gdwarf -c $< -o $@ -lstdc++ -fno-rtti -fno-exceptions
 
 %.o : %.c ${HEADERS}
 	/usr/local/bin/i686-elf-gcc-5.3.0 -std=gnu99 -m32 -ffreestanding $(INCLUDE) -g -c $< -o $@

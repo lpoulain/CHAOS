@@ -19,7 +19,7 @@ void* kmalloc_pages(uint nb_pages, const char *name) {
 }
 
 void* kmalloc(uint nb_bytes) {
-	heap_alloc(nb_bytes, &kheap);
+	return heap_alloc(nb_bytes, &kheap);
 }
 
 void kfree(void *ptr) {

@@ -457,6 +457,7 @@ void C_stack_dump(void *esp, void *ebp) {
         if (debug_line_find_address((void*)fct_ptr, &frame)) {
             debug_info_find_address((void*)fct_ptr, &frame);
             printf("[%x] %s (%s/%s at line %d)  \n", fct_ptr, frame.function, frame.path, frame.filename, frame.line_number);
+//            printf("[%x] n/a  \n", fct_ptr);
         } else
             printf("[%x] n/a  \n", fct_ptr);
 //        debug_i("Stack: ", fct_ptr);

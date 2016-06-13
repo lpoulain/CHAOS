@@ -3,6 +3,7 @@
 #include "dwarf.h"
 #include "debug.h"
 
+#define MAX_FUNCTION_RANGES	700
 
 static uint8 DW_FORM_size[33] = {
 	0, 4, 0, 0, 0, 2, 4, 8,
@@ -20,14 +21,49 @@ static char *DW_FORM_name[33] = {
 	"ref_sig8"
 };
 
+void cpp_unmanble(char *name) {
+	int classname_length = 0, methodname_length=0, idx=3;
+	while (name[idx] >= '0' && name[idx] <= '9') {
+		classname_length *= 10;
+		classname_length += name[idx] - '0';
+		idx++;
+	}
+	for (int i=0; i<classname_length; i++)
+		name[i] = name[i+idx];
+	name[classname_length] = ':';
+	name[classname_length+1] = ':';
+
+	idx += classname_length;
+
+	if (name[idx] == 'C') {
+		name[classname_length+2] = 0;
+	}
+	else if (name[idx] == 'D') {
+		name[classname_length+2] = '~';
+		name[classname_length+3] = 0;
+	}
+	else if (name[idx] >= '0' && name[idx] <= '9') {
+		while (name[idx] >= '0' && name[idx] <= '9') {
+			methodname_length *= 10;
+			methodname_length += name[idx] - '0';
+			idx++;
+		}
+		
+		for (int i=0; i<methodname_length; i++)
+			name[classname_length+2+i] = name[i+idx];
+		name[methodname_length+classname_length+2] = 0;
+	}
+	else name[classname_length+2] = 0;
+}
+
 typedef struct {
 	char *name;
 	unsigned char *low_pc;
 	uint high_pc;
 } FunctionRange;
 
-static FunctionRange functionRanges[600];
 static uint nb_function_ranges = 0;
+static FunctionRange functionRanges[MAX_FUNCTION_RANGES];
 
 typedef struct __attribute__((packed)) {
 	uint length;
@@ -50,9 +86,9 @@ typedef struct __attribute__((packed)) {
     	return;																				\
     }
 
-#define CHECK_VALID_ATTRIBUTE(ptr) 								\
+#define CHECK_VALID_ATTRIBUTE(ptr, sch) 								\
     if (*ptr < 0 || *ptr > 0x20) {								\
-    	printf("ERROR: invalid attribute number (%d). Schema: %x\n", *ptr, ptr);	\
+    	printf("ERROR: invalid attribute number (%d). Schema: %x/%x\n", *ptr, ptr, sch);	\
     	return;												\
     }
 
@@ -62,6 +98,10 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 	frame->function = "?";
 	for (int i=0; i<nb_function_ranges; i++) {
 		if ((unsigned char *)ptr >= functionRanges[i].low_pc && (unsigned char *)ptr < functionRanges[i].low_pc + functionRanges[i].high_pc) {
+			if (functionRanges[i].name == 0) {
+				printf("Problem idx %d [%x-%x]\n", i, functionRanges[i].low_pc, functionRanges[i].low_pc+functionRanges[i].high_pc);
+				return 0;
+			}
 			frame->function = functionRanges[i].name;
 //			printf("Found it: %s", functionRanges[i].name);
 			return 1;
@@ -75,6 +115,13 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 // Goes through the Debugging Information Entries (DIE)
 // and finds the subprogram whose range covers the stack
 void debug_info_load(Elf *elf) {
+	for (int i=0; i<MAX_FUNCTION_RANGES; i++) {
+		functionRanges[i].name = "n/a";
+		functionRanges[i].low_pc = 0;
+		functionRanges[i].high_pc = 0;
+	}
+
+//	switch_debug();
 	unsigned char *DIE_schema[300];
 	unsigned char *end_section = elf->section[ELF_SECTION_DEBUG_INFO].end;
 	unsigned char *die = elf->section[ELF_SECTION_DEBUG_INFO].start;
@@ -132,6 +179,7 @@ void debug_info_load(Elf *elf) {
 			if (is_debug()) printf("DIE: %d (%x)\n", *die, (die - start));
 
 			schema = DIE_schema[*die];
+			uint8 *schema_top = schema;
 			is_function_type = *(schema+1) == DW_TAG_subprogram;
 
 /*			if (is_function_type) {
@@ -148,19 +196,24 @@ void debug_info_load(Elf *elf) {
 			// Goes through the schema and compute the
 			// space taken by each attribute
 			while ((*schema != 0 || *(schema-1) != 0)) {
+				// The first argument is actually ULEB-encoded.
+				// So if it's greater than 0x80 we assume it takes 2 bytes instead of 1
+				if (*(schema-1) & 0x80) schema++;
+
 				CHECK_VALID_SCHEMA(schema)
 				CHECK_VALID_DIE(die)
-				CHECK_VALID_ATTRIBUTE(schema)
+				CHECK_VALID_ATTRIBUTE(schema, schema_top)
 
 				if (is_debug()) printf("Attr DW_FORM_%s (%d) (%x, die=%x)\n", DW_FORM_name[*schema], *schema, (schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start), die - elf->section[ELF_SECTION_DEBUG_INFO].start);
 
 				// If this is DIE of type DW_TAG_subprogram
 				// we care about its fields
 				if (is_function_type) {
-					if (*(schema-1) == DW_AT_name) {
+					if (*(schema-1) == DW_AT_name || *(schema-1) == DW_AT_linkage_name) {
 						if (*schema == DW_FORM_string) functionRanges[nb_function_ranges].name = die;
 						else functionRanges[nb_function_ranges].name = elf->section[ELF_SECTION_DEBUG_STR].start + *(uint*)die;
 					}
+
 					if (*(schema-1) == DW_AT_low_pc) functionRanges[nb_function_ranges].low_pc = *(unsigned char **)die;
 					if ((uint)*(schema-1) == DW_AT_high_pc) functionRanges[nb_function_ranges].high_pc = *(uint*)die;
 				}
@@ -177,11 +230,11 @@ void debug_info_load(Elf *elf) {
 							break;
 						case DW_FORM_exprloc:
 							n2 = decodeULEB128(die, &n1);
-//							printf("DW_FORM_exprloc [%d] [%d]", n1, n2);
-//							printf("Old DIE: %d (%x)", *die, die);
+//							printf("DW_FORM_exprloc [%d] [%d]\n", n1, n2);
+//							printf("Old DIE: %d (%x)\n", *die, die);
 							die += n1 + n2;
-//							printf("New DIE: %d (%x)", *die, die);
-							if (*(schema+1) != 0 || *(schema+2) != 0) schema++;
+//							printf("New DIE: %d (%x)\n", *die, die);
+//							if (*(schema+1) != 0 || *(schema+2) != 0) schema++;
 							break;
 						default:
 							printf("UNKNOWN DW_FORM: %d (%x, offset %x)\n", *schema, schema, schema - elf->section[ELF_SECTION_DEBUG_ABBREV].start);
@@ -193,12 +246,28 @@ void debug_info_load(Elf *elf) {
 			}
 
 			if (is_function_type) {
-				nb_function_ranges++;
+				if (functionRanges[nb_function_ranges].low_pc != 0 && functionRanges[nb_function_ranges].high_pc != 0) {
+					if (!strncmp(functionRanges[nb_function_ranges].name, "_ZN", 3)) {
+						cpp_unmanble(functionRanges[nb_function_ranges].name);
+//						printf("[%s]\n", functionRanges[nb_function_ranges].name);
+					}
+					nb_function_ranges++;
+				}
 			}
 
 			CHECK_VALID_DIE(die)
 		}
 
 	}
+
+//	printf("Nb functions: %d\n", nb_function_ranges);
+//	return;
+
+	kheap_check_for_corruption();
+
+/*	for (int i=0; i<nb_function_ranges; i++)
+		printf("[%s]\n", functionRanges[i].name);
+
+	printf("------------\n");*/
 
 }

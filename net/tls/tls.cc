@@ -4,6 +4,8 @@ extern "C" {
 	#include "tcp.h"
 	#include "kheap.h"
 	#include "crypto.h"
+	#include "debug.h"
+	#include "debug_info.h"
 }
 
 #include "tls.hh"
@@ -151,8 +153,8 @@ uint8 *message_all(TLSEncryptedMessage *msg) {
 }
 
 void message_free(TLSEncryptedMessage *msg) {
-//	kfree(msg->plaintext.value);
-//	kfree(msg->ciphertext.value);
+	kfree(msg->plaintext.value);
+	kfree(msg->ciphertext.value);
 	kfree(msg);
 }
 
@@ -224,6 +226,7 @@ class TLS {
 
 	uint8 *handshake_buffer;
 
+	uint8 *keys;
 	uint16 key_size;
 
 	TLSNumber client_write_key;
@@ -262,15 +265,10 @@ public:
 	void P_hash(TLSNumber *secret, TLSNumber *seed, uint8 out[], uint output_size) {
 		// A (initially 'seed', but after the first iteration will always be 32 bytes)
 		TLSNumber A(seed->size, seed->value);
-//		A.value = seed->value;
-//		A.size = seed->size;
 		uint8 A_data[32];
 
 		// A + seed (always 32+seed's size bytes)
 		TLSNumber A_plus_seed(seed->size+32);
-//		uint8 *A_plus_seed_value = (uint8*)kmalloc(seed->size + 32);
-//		A_plus_seed.value = A_plus_seed_value;
-//		A_plus_seed.size = seed->size + 32;
 
 		uint8 hash[32];
 		uint result_offset = 0;
@@ -279,8 +277,6 @@ public:
 			// A = HMAD_hash(secret, A)
 			HMAC_hash(secret, &A, hash);
 			A.init(32, (uint8*)&A_data);
-//			A.value = (uint8*)&A_data;
-//			A.size = 32;
 			memcpy(A.value, hash, 32);
 
 			// result += HMAC_hash(secret, A + seed)
@@ -301,14 +297,11 @@ public:
 		if (seed2 != 0) seed_size += seed2->size;
 		TLSNumber new_seed(seed_size);
 
-//		new_seed.value = (uint8*)kmalloc(new_seed.size);
 		memcpy(new_seed.value, label, label_size);
 		memcpy(new_seed.value + label_size, seed1->value, seed1->size);
 		if (seed2 != 0) memcpy(new_seed.value + label_size + seed1->size, seed2->value, seed2->size);
 
 		P_hash(secret, &new_seed, out, output_size);
-
-//		kfree(new_seed.value);
 	}
 
 	void handle_alert(Window *win, TLSCursor *cursor) {
@@ -562,37 +555,26 @@ public:
 		// - premaster_secret size
 		// - size of the 
 		this->key_size = this->key_exchange->get_key_size();
+
 		return 0;
 	}
 
 	void compute_secret_keys() {
 		TLSNumber *premaster_secret = this->key_exchange->get_premaster_secret();
 		this->master_secret.init(48, (uint8*)kmalloc(64));
-//		this->master_secret.size = 48;
 
 		PRF(premaster_secret, "master secret", &this->client_random, &this->server_random, this->master_secret.value, 64);
 
-		uint8 *keys = (uint8*)kmalloc(128);
+		this->keys = (uint8*)kmalloc(128);
 
 		PRF(&this->master_secret, "key expansion", &this->server_random, &this->client_random, keys, 128);
 
-		this->client_write_MAC_key.init(20, keys);
-		this->server_write_MAC_key.init(20, keys+20);
-		this->client_write_key.init(16, keys+40);
-		this->server_write_key.init(16, keys+56);
-/*
-		this->client_write_MAC_key.value = keys;
-		this->client_write_MAC_key.size = 20;
+		this->client_write_MAC_key.init(20, this->keys);
+		this->server_write_MAC_key.init(20, this->keys+20);
+		this->client_write_key.init(16, this->keys+40);
+		this->server_write_key.init(16, this->keys+56);
 
-		this->server_write_MAC_key.value = keys+20;
-		this->server_write_MAC_key.size = 20;
-
-		this->client_write_key.value = keys+40;
-		this->client_write_key.size = 16;
-
-		this->server_write_key.value = keys+56;
-		this->server_write_key.size = 16;
-		*/
+		delete premaster_secret;
 	}
 
 	void send_client_key_exchange() {
@@ -614,6 +596,8 @@ public:
 		this->handshake_size += 6 + this->key_size;
 
 		TCP_send(client_key_exchange, 11 + this->key_size);
+
+		delete this->client_key_exchange;
 	}
 
 	void send_client_change_cipher_suite() {
@@ -629,6 +613,9 @@ public:
 		plaintext[1] = 0x00;
 		plaintext[2] = 0x00;
 		plaintext[3] = 0x0C;
+
+//		StackFrame frame;
+//		debug_info_find_address((void*)0x00117BC5, &frame);
 
 		// Computes the hash of the handshake messages
 		TLSNumber handshake_msg_hash(32);
@@ -648,6 +635,7 @@ public:
 		TLSCursor_init(&this->cursor, this->connection);
 
 		TCP_send(message_all(msg), msg->ciphertext.size);
+
 		message_free(msg);
 	}
 
@@ -717,6 +705,7 @@ public:
 			TLS_debug = 1;
 			printf_win(win, "%s\n", message_plaintext(msg));
 			TLS_debug = 0;
+
 			message_free(msg);
 			kfree(data);
 			keep_downloading = 0;
@@ -725,6 +714,11 @@ public:
 	}
 
 	~TLS() {
+		kfree(this->client_hello);
+		kfree(this->handshake_buffer);
+		kfree(this->keys);
+		kfree(this->master_secret.value);
+		if (!this->key_exchange) delete this->key_exchange;
 	}
 };
 

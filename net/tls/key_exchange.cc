@@ -78,6 +78,10 @@ uint8 *DHE_KeyExchange::get_client_key_exchange() {
 	return client_key_exchange;
 }
 
+DHE_KeyExchange::~DHE_KeyExchange() {
+	delete this->client_x_Int;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 /// RSA key exchange
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,5 +145,13 @@ uint8 *RSA_KeyExchange::get_client_key_exchange() {
 		tmp[i] = switch_endian32(encrypted_premaster_secret->data[63-i]);
 	}
 
+	delete encrypted_premaster_secret;
+	delete this->premaster_data;
+
 	return client_key_exchange;
+}
+
+RSA_KeyExchange::~RSA_KeyExchange() {
+	delete this->RSA_n;
+	delete this->RSA_e;
 }

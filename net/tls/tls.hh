@@ -81,6 +81,7 @@ class DHE_KeyExchange : public KeyExchange {
 
 public:
 	DHE_KeyExchange(uint8 *);
+	~DHE_KeyExchange();
 	virtual uint16 get_key_size();
 	virtual TLSNumber *get_premaster_secret();
 	virtual uint8 *get_client_key_exchange();
@@ -93,6 +94,7 @@ class RSA_KeyExchange : public KeyExchange {
 
 public:
 	RSA_KeyExchange(uint8 *);
+	~RSA_KeyExchange();
 	virtual uint16 get_key_size();
 	virtual TLSNumber *get_premaster_secret();
 	virtual uint8 *get_client_key_exchange();
