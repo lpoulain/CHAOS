@@ -64,6 +64,7 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame, E
 				// DW_LNE_set_address
 				case 2:
 					dwarf_address = *((char **)(opcode + 3));
+					dwarf_line = 1;
 					break;
 				// DW_LNE_define_file
 				case 3:
@@ -148,6 +149,8 @@ int debug_line_get_path(DebugLineHeader *header, void *ptr, StackFrame *frame, E
 		if (is_debug()) printf("[%x][%x] Opcode %d => Address=%x, line=%d       \n", addr_opcode, ((unsigned char*)addr_opcode - elf->section[ELF_SECTION_DEBUG_LINE].start), old_opcode, dwarf_address, dwarf_line);
 	}
 
+	if (opcode >= end) return 0;
+
 	if (dwarf_address > (unsigned char *)ptr) dwarf_line = old_line;
 
 	char *filename = files;
@@ -177,13 +180,11 @@ DebugLineHeader *debug_line_find_block(void *ptr, Elf *elf) {
 	int idx = 0;
 
 	while (header->length > 0 && (unsigned char *)header < end) {
-//		debug_i("Header at: ", header);
-//		debug_i("Length: ", header->length);
-//		debug_i("Header length: ", header->header_length);
+//		printf("Header at %x (length=%d)\n", header, header->length);
 
 		if (header->header_length + 13 < header->length) {
 			uint *address = (uint*)((char*)header + header->header_length + 13);
-//			debug_i("Address: ", *address);
+//			printf("Address: %x\n", *address);
 			if (*address > (uint)ptr) return old_block;
 		}
 
@@ -198,10 +199,28 @@ DebugLineHeader *debug_line_find_block(void *ptr, Elf *elf) {
 extern Elf *kernel_elf;
 
 int debug_line_find_address(void *ptr, StackFrame *frame) {
-	DebugLineHeader *header = debug_line_find_block(ptr, kernel_elf);
+	DebugLineHeader *header = (DebugLineHeader*)kernel_elf->section[ELF_SECTION_DEBUG_LINE].start;
+	DebugLineHeader *old_block = 0;
+	unsigned char *end = kernel_elf->section[ELF_SECTION_DEBUG_LINE].end;
+	int idx = 0, res;
+
+	while (header->length > 0 && (unsigned char *)header < end) {
+//		printf("Header %x\n", header);
+		res = debug_line_get_path(header, ptr, frame, kernel_elf);
+		if (res) {
+//			switch_debug();
+//			debug_line_get_path(header, ptr, frame, kernel_elf);
+			return res;
+		}
+		header = (DebugLineHeader*) ((char*)header + header->length + 4);
+	}
+
+	return 0;
+
+/*	DebugLineHeader *header = debug_line_find_block(ptr, kernel_elf);
 	if (header == 0) return 0;
 
-//	printf("Found the block: %x\n", header);
+	printf("Found the block: %x\n", header);
 
-	return debug_line_get_path(header, ptr, frame, kernel_elf);
+	return debug_line_get_path(header, ptr, frame, kernel_elf);*/
 }

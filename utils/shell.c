@@ -528,12 +528,33 @@ void shell_https(Window *win, ShellEnv *env, Token *tokens, uint length) {
 	HTTPS_get(win, tokens->value);
 }
 
+void shell_addr(Window *win, ShellEnv *env, Token *tokens, uint length) {
+	if (length > 0 && tokens->code == PARSE_HEX) {
+		StackFrame frame;
+
+        uint fct_ptr = tokens->value;
+        fct_ptr = 0x00118354;
+
+        if (debug_line_find_address((void*)fct_ptr, &frame)) {
+            debug_info_find_address((void*)fct_ptr, &frame);
+            printf_win(win, "[%x] %s (%s/%s at line %d)  \n", fct_ptr, frame.function, frame.path, frame.filename, frame.line_number);
+        }
+        else
+        	printf_win(win, "Not a known address\n");
+
+		return;
+	}
+
+	printf_win(win, "Usage: addr [hex address]\n");
+}
+
 ////////////////////////////////////////////////////////////////////////
 
-#define NB_CMDS	26
+#define NB_CMDS	27
 
 ShellCmd commands[NB_CMDS] = {
 	{ .name = "help",		.function = shell_help,			.description = "This help\n" },
+	{ .name = "addr",		.function = shell_addr,			.description = "Displays the source code corresponding to the address\n" },
 	{ .name = "arp",		.function = shell_arp,			.description = "Prints the IP->MAC translation table\n" },
 	{ .name = "bg",			.function = shell_bg,			.description = "bg <nb> <nb> <nb> <nb>: draws a background rectangle [DEBUG]\n" },
 	{ .name = "cat",		.function = shell_cat,			.description = "cat <filename>: prints the content of a file\n" },

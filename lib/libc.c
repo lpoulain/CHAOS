@@ -297,7 +297,10 @@ void debug_i(char *msg, uint nb) {
     draw_string(msg, 0, debug_pos);
     draw_ptr((void*)nb, strlen(msg)*8, debug_pos);
     debug_pos += 8;
-    if (debug_pos >= 480) debug_pos = 0;
+    if (debug_pos >= 480) {
+        getch();
+        debug_pos = 0;
+    }
 }
 
 void _printf(Window *win, const char *format, va_list args) {

@@ -60,6 +60,7 @@ typedef struct {
 	char *name;
 	unsigned char *low_pc;
 	uint high_pc;
+	uint address;
 } FunctionRange;
 
 static uint nb_function_ranges = 0;
@@ -116,9 +117,10 @@ int debug_info_find_address(void *ptr, StackFrame *frame) {
 // and finds the subprogram whose range covers the stack
 void debug_info_load(Elf *elf) {
 	for (int i=0; i<MAX_FUNCTION_RANGES; i++) {
-		functionRanges[i].name = "n/a";
+		functionRanges[i].name = 0;
 		functionRanges[i].low_pc = 0;
 		functionRanges[i].high_pc = 0;
+		functionRanges[i].address = 0;
 	}
 
 //	switch_debug();
@@ -163,6 +165,7 @@ void debug_info_load(Elf *elf) {
 		uint *tmp = (uint*)die, n1, n2;
 		uint compilation_unit_size = *tmp;
 		unsigned char *end_compilation_unit = die + header->length + 4;
+		uint compilation_unit_start = (uint)die;
 		die += 11;
 		if (is_debug()) printf("Compilation unit at %x, size: %x\n", (die - start), compilation_unit_size);
 
@@ -181,7 +184,7 @@ void debug_info_load(Elf *elf) {
 			schema = DIE_schema[*die];
 			uint8 *schema_top = schema;
 			is_function_type = *(schema+1) == DW_TAG_subprogram;
-
+			unsigned char *die_start = die;
 /*			if (is_function_type) {
 				DWARFSubProgram *subprogram = (DWARFSubProgram*)die;
 				printf("[%s] %x -> %x", kernel_debug_str + subprogram->name, subprogram->low_pc, subprogram->low_pc + subprogram->high_pc);
@@ -213,7 +216,7 @@ void debug_info_load(Elf *elf) {
 						if (*schema == DW_FORM_string) functionRanges[nb_function_ranges].name = die;
 						else functionRanges[nb_function_ranges].name = elf->section[ELF_SECTION_DEBUG_STR].start + *(uint*)die;
 					}
-
+					if (*(schema-1) == DW_AT_specification) functionRanges[nb_function_ranges].address = *(uint*)die;
 					if (*(schema-1) == DW_AT_low_pc) functionRanges[nb_function_ranges].low_pc = *(unsigned char **)die;
 					if ((uint)*(schema-1) == DW_AT_high_pc) functionRanges[nb_function_ranges].high_pc = *(uint*)die;
 				}
@@ -246,13 +249,40 @@ void debug_info_load(Elf *elf) {
 			}
 
 			if (is_function_type) {
-				if (functionRanges[nb_function_ranges].low_pc != 0 && functionRanges[nb_function_ranges].high_pc != 0) {
+				// The function has no name
+				if (functionRanges[nb_function_ranges].name == 0) {
+					// If it has a DW_AT_specification, let's check if it was previously recorded
+					if (functionRanges[nb_function_ranges].address != 0 &&
+						functionRanges[nb_function_ranges].low_pc > 0 &&
+						functionRanges[nb_function_ranges].high_pc > 0) {
+//						printf("[%x] Searching for address %x...\n", die_start - compilation_unit_start, functionRanges[nb_function_ranges].address);
+						for (int i=nb_function_ranges-1; i>=0; i--) {
+							if (functionRanges[nb_function_ranges].address == functionRanges[i].address) {
+								functionRanges[i].low_pc = functionRanges[nb_function_ranges].low_pc;
+								functionRanges[i].high_pc = functionRanges[nb_function_ranges].high_pc;
+//								printf("[%s : %x->%x]\n", functionRanges[i].name, functionRanges[i].low_pc, functionRanges[i].low_pc+functionRanges[i].high_pc);
+								break;
+							}
+
+							if (functionRanges[nb_function_ranges].address <= 11) break;
+						}
+					}
+
+					functionRanges[nb_function_ranges].address = 0;
+					functionRanges[nb_function_ranges].low_pc = 0;
+					functionRanges[nb_function_ranges].high_pc = 0;
+				}
+				// It has a name. Add an entry and unmangle the name if it is a C++ name
+				else {
+					functionRanges[nb_function_ranges].address = die_start - compilation_unit_start;
 					if (!strncmp(functionRanges[nb_function_ranges].name, "_ZN", 3)) {
 						cpp_unmanble(functionRanges[nb_function_ranges].name);
+//						printf("DIE: %s %d (%x)\n", functionRanges[nb_function_ranges].name, *die_start, (die_start - compilation_unit_start));
 //						printf("[%s]\n", functionRanges[nb_function_ranges].name);
 					}
 					nb_function_ranges++;
 				}
+
 			}
 
 			CHECK_VALID_DIE(die)
@@ -262,7 +292,7 @@ void debug_info_load(Elf *elf) {
 
 //	printf("Nb functions: %d\n", nb_function_ranges);
 //	return;
-
+//for (;;);
 	kheap_check_for_corruption();
 
 /*	for (int i=0; i<nb_function_ranges; i++)

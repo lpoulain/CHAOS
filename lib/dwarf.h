@@ -12,6 +12,7 @@
 #define DW_AT_name			0x3
 #define DW_AT_low_pc		0x11
 #define DW_AT_high_pc		0x12
+#define DW_AT_specification 0x47
 #define DW_AT_linkage_name	0x6E
 
 #define DW_FORM_addr		0x1
